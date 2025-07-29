@@ -38,6 +38,7 @@ use redis::InfoDict;
 use telemetrylib::GlideOpenTelemetry;
 use tokio::sync::{Notify, RwLock, mpsc, oneshot};
 use versions::Versioning;
+use crate::request_type::RequestType;
 
 pub const HEARTBEAT_SLEEP_DURATION: Duration = Duration::from_secs(1);
 pub const DEFAULT_RETRIES: u32 = 3;
@@ -64,6 +65,87 @@ pub const DEFAULT_MAX_INFLIGHT_REQUESTS: u32 = 1000;
 /// A 3-second interval provides a reasonable balance between connection validation
 /// and performance overhead.
 pub const CONNECTION_CHECKS_INTERVAL: Duration = Duration::from_secs(3);
+
+/// Extract RequestType from a Redis command for decompression processing
+fn extract_request_type_from_cmd(cmd: &Cmd) -> Option<RequestType> {
+    // Get the command name (first argument)
+    let command_name = cmd.command()?;
+    let command_str = String::from_utf8_lossy(&command_name).to_uppercase();
+    
+    // Map command names to RequestType
+    match command_str.as_str() {
+        "GET" => Some(RequestType::Get),
+        "GETEX" => Some(RequestType::GetEx),
+        "GETDEL" => Some(RequestType::GetDel),
+        "GETRANGE" => Some(RequestType::GetRange),
+        "GETSET" => Some(RequestType::GetSet),
+        "MGET" => Some(RequestType::MGet),
+        "SUBSTR" => Some(RequestType::Substr),
+        "SET" => Some(RequestType::Set),
+        "SETEX" => Some(RequestType::SetEx),
+        "SETNX" => Some(RequestType::SetNX),
+        "SETRANGE" => Some(RequestType::SetRange),
+        "MSET" => Some(RequestType::MSet),
+        "MSETNX" => Some(RequestType::MSetNX),
+        "APPEND" => Some(RequestType::Append),
+        "HGET" => Some(RequestType::HGet),
+        "HGETALL" => Some(RequestType::HGetAll),
+        "HMGET" => Some(RequestType::HMGet),
+        "HVALS" => Some(RequestType::HVals),
+        "HSET" => Some(RequestType::HSet),
+        "HMSET" => Some(RequestType::HMSet),
+        "LPOP" => Some(RequestType::LPop),
+        "RPOP" => Some(RequestType::RPop),
+        "LPUSH" => Some(RequestType::LPush),
+        "RPUSH" => Some(RequestType::RPush),
+        "LRANGE" => Some(RequestType::LRange),
+        "LINDEX" => Some(RequestType::LIndex),
+        "LSET" => Some(RequestType::LSet),
+        "BLPOP" => Some(RequestType::BLPop),
+        "BRPOP" => Some(RequestType::BRPop),
+        "LMOVE" => Some(RequestType::LMove),
+        "BLMOVE" => Some(RequestType::BLMove),
+        "LMPOP" => Some(RequestType::LMPop),
+        "RPOPLPUSH" => Some(RequestType::RPopLPush),
+        "BRPOPLPUSH" => Some(RequestType::BRPopLPush),
+        "SADD" => Some(RequestType::SAdd),
+        "SMEMBERS" => Some(RequestType::SMembers),
+        "SPOP" => Some(RequestType::SPop),
+        "SRANDMEMBER" => Some(RequestType::SRandMember),
+        "SDIFF" => Some(RequestType::SDiff),
+        "SINTER" => Some(RequestType::SInter),
+        "SUNION" => Some(RequestType::SUnion),
+        "ZADD" => Some(RequestType::ZAdd),
+        "ZRANGE" => Some(RequestType::ZRange),
+        "ZREVRANGE" => Some(RequestType::ZRevRange),
+        "ZRANGEBYSCORE" => Some(RequestType::ZRangeByScore),
+        "ZREVRANGEBYSCORE" => Some(RequestType::ZRevRangeByScore),
+        "ZRANGEBYLEX" => Some(RequestType::ZRangeByLex),
+        "ZREVRANGEBYLEX" => Some(RequestType::ZRevRangeByLex),
+        "ZRANDMEMBER" => Some(RequestType::ZRandMember),
+        "ZPOPMIN" => Some(RequestType::ZPopMin),
+        "ZPOPMAX" => Some(RequestType::ZPopMax),
+        "BZPOPMIN" => Some(RequestType::BZPopMin),
+        "BZPOPMAX" => Some(RequestType::BZPopMax),
+        "ZMPOP" => Some(RequestType::ZMPop),
+        "BZMPOP" => Some(RequestType::BZMPop),
+        "ZDIFF" => Some(RequestType::ZDiff),
+        "ZINTER" => Some(RequestType::ZInter),
+        "ZUNION" => Some(RequestType::ZUnion),
+        "XADD" => Some(RequestType::XAdd),
+        "XREAD" => Some(RequestType::XRead),
+        "XREADGROUP" => Some(RequestType::XReadGroup),
+        "XRANGE" => Some(RequestType::XRange),
+        "XREVRANGE" => Some(RequestType::XRevRange),
+        "JSON.GET" => Some(RequestType::JsonGet),
+        "JSON.MGET" => Some(RequestType::JsonMGet),
+        "JSON.SET" => Some(RequestType::JsonSet),
+        "JSON.STRAPPEND" => Some(RequestType::JsonStrAppend),
+        "PFADD" => Some(RequestType::PfAdd),
+        "GEOADD" => Some(RequestType::GeoAdd),
+        _ => None, // Unknown command, no compression/decompression needed
+    }
+}
 
 /// A static Glide runtime instance
 static RUNTIME: OnceCell<GlideRt> = OnceCell::new();
@@ -429,7 +511,33 @@ impl Client {
                     },
                     ClientWrapper::Lazy(_) => unreachable!("Lazy client should have been initialized"),
                 }
-                .and_then(|value| convert_to_expected_type(value, expected_type))
+                .and_then(|value| {
+                    // Apply decompression if compression manager is available
+                    let processed_value = if let Some(ref compression_manager) = self.compression_manager {
+                        // Extract request type from command for decompression
+                        if let Some(request_type) = extract_request_type_from_cmd(cmd) {
+                            match crate::compression::process_response_for_decompression(
+                                value.clone(),
+                                request_type,
+                                Some(compression_manager.as_ref())
+                            ) {
+                                Ok(decompressed_value) => decompressed_value,
+                                Err(e) => {
+                                    log_warn(
+                                        "send_command_decompression",
+                                        format!("Failed to decompress response: {}", e),
+                                    );
+                                    value // Return original value on decompression failure
+                                }
+                            }
+                        } else {
+                            value // No request type found, return original value
+                        }
+                    } else {
+                        value // No compression manager, return original value
+                    };
+                    convert_to_expected_type(processed_value, expected_type)
+                })
             })
             .await?;
 
