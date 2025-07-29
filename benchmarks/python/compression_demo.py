@@ -2,10 +2,10 @@
 # Copyright Valkey GLIDE Project Contributors - SPDX Identifier: Apache-2.0
 
 """
-Compression Demo Script
+Compression Feature Demo
 
-This script demonstrates the compression feature in Valkey GLIDE Python client.
-It shows how to configure compression and compares performance with and without compression.
+This script demonstrates the compression feature in Valkey GLIDE Python client,
+showing configuration options, performance comparison, and validation.
 """
 
 import asyncio
@@ -19,12 +19,12 @@ from glide import (
 )
 
 
-async def demo_compression():
+async def demonstrate_compression():
     print("🚀 Valkey GLIDE Compression Demo")
     print("=" * 50)
     
     # Test data - highly compressible
-    test_data = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. " * 100
+    test_data = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. " * 50
     print(f"📊 Test data size: {len(test_data)} bytes")
     print(f"📝 Sample data: {test_data[:100]}...")
     print()
@@ -57,9 +57,10 @@ async def demo_compression():
     
     for i in range(100):
         result = await client_no_compression.get(f"test:no_compression:{i}")
-        if result != test_data:
-            print(f"   ⚠️  Data mismatch at key {i}: expected {len(test_data)} bytes, got {len(result) if result else 'None'}")
-            break
+        # Convert bytes to string for comparison
+        if isinstance(result, bytes):
+            result = result.decode('utf-8')
+        assert result == test_data, f"Data mismatch at key {i}"
     
     no_compression_time = time.perf_counter() - start_time
     await client_no_compression.close()
@@ -78,9 +79,10 @@ async def demo_compression():
     
     for i in range(100):
         result = await client_with_compression.get(f"test:with_compression:{i}")
-        if result != test_data:
-            print(f"   ⚠️  Data mismatch at key {i}: expected {len(test_data)} bytes, got {len(result) if result else 'None'}")
-            break
+        # Convert bytes to string for comparison
+        if isinstance(result, bytes):
+            result = result.decode('utf-8')
+        assert result == test_data, f"Data mismatch at key {i}"
     
     compression_time = time.perf_counter() - start_time
     await client_with_compression.close()
@@ -124,7 +126,11 @@ async def demo_compression():
         start_time = time.perf_counter()
         for i in range(50):
             await client.set(f"test:level_{level}:{i}", test_data)
-            await client.get(f"test:level_{level}:{i}")
+            result = await client.get(f"test:level_{level}:{i}")
+            # Convert bytes to string for comparison
+            if isinstance(result, bytes):
+                result = result.decode('utf-8')
+            assert result == test_data, f"Data mismatch at level {level}, key {i}"
         
         level_time = time.perf_counter() - start_time
         await client.close()
@@ -132,13 +138,14 @@ async def demo_compression():
         print(f"   Level {level}: {100/level_time:.0f} ops/sec ({level_time:.3f}s for 100 ops)")
     
     print()
-    print("✨ Demo completed! Compression is working correctly.")
+    print("✨ Demo completed successfully!")
     print("💡 Key takeaways:")
     print("   • Compression can improve performance for large, compressible data")
     print("   • Lower compression levels (1) are faster but compress less")
     print("   • Higher compression levels (6) compress more but are slower")
     print("   • Optimal level depends on your data and performance requirements")
+    print("   • Data integrity is maintained through compression/decompression cycle")
 
 
 if __name__ == "__main__":
-    asyncio.run(demo_compression())
+    asyncio.run(demonstrate_compression())

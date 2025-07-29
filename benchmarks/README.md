@@ -4,6 +4,29 @@
 
 The results of the benchmark runs will be written into .csv files in the `./results` folder.
 
+## Python Compression Benchmarks
+
+The Python client includes specialized compression benchmarks:
+
+- **`python/compression_benchmark.py`** - Basic compression vs no-compression performance comparison
+- **`python/comprehensive_compression_benchmark.py`** - Detailed analysis of different compression levels and configurations  
+- **`python/compression_demo.py`** - Interactive demonstration of compression features
+
+### Running Compression Benchmarks
+
+```bash
+# Basic compression benchmark
+python/.env/bin/python benchmarks/python/compression_benchmark.py --minimal --dataSize 2000
+
+# Comprehensive compression analysis
+python/.env/bin/python benchmarks/python/comprehensive_compression_benchmark.py
+
+# Interactive compression demo
+python/.env/bin/python benchmarks/python/compression_demo.py
+```
+
+See [COMPRESSION_IMPLEMENTATION.md](../COMPRESSION_IMPLEMENTATION.md) for detailed results and analysis.
+
 If while running benchmarks your redis-server is killed every time the program runs the 4000 data-size benchmark, it might be because you don't have enough available storage on your machine.
 To solve this issue, you have two options -
 
