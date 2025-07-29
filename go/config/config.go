@@ -102,6 +102,7 @@ type baseClientConfiguration struct {
 	clientAZ          string
 	reconnectStrategy *BackoffStrategy
 	lazyConnect       bool
+	compression       *CompressionConfig
 }
 
 func (config *baseClientConfiguration) toProtobuf() (*protobuf.ConnectionRequest, error) {
@@ -150,6 +151,13 @@ func (config *baseClientConfiguration) toProtobuf() (*protobuf.ConnectionRequest
 
 	if config.lazyConnect {
 		request.LazyConnect = config.lazyConnect
+	}
+
+	if config.compression != nil {
+		if err := config.compression.Validate(); err != nil {
+			return nil, fmt.Errorf("compression configuration validation failed: %w", err)
+		}
+		request.CompressionConfig = config.compression.toProtobuf()
 	}
 
 	return &request, nil
@@ -349,6 +357,16 @@ func (config *ClientConfiguration) WithSubscriptionConfig(
 	return config
 }
 
+// WithCompression sets the compression configuration for the client.
+// When enabled, values will be automatically compressed before being sent to the server for
+// set-type commands and decompressed when received from the server for get-type commands.
+// This compression is completely transparent to the application layer and maintains full backward
+// compatibility with existing data and non-compression clients.
+func (config *ClientConfiguration) WithCompression(compression *CompressionConfig) *ClientConfiguration {
+	config.compression = compression
+	return config
+}
+
 func (config *ClientConfiguration) HasSubscription() bool {
 	return config.subscriptionConfig != nil && len(config.subscriptionConfig.subscriptions) > 0
 }
@@ -493,6 +511,16 @@ func (config *ClusterClientConfiguration) WithSubscriptionConfig(
 	subscriptionConfig *ClusterSubscriptionConfig,
 ) *ClusterClientConfiguration {
 	config.subscriptionConfig = subscriptionConfig
+	return config
+}
+
+// WithCompression sets the compression configuration for the client.
+// When enabled, values will be automatically compressed before being sent to the server for
+// set-type commands and decompressed when received from the server for get-type commands.
+// This compression is completely transparent to the application layer and maintains full backward
+// compatibility with existing data and non-compression clients.
+func (config *ClusterClientConfiguration) WithCompression(compression *CompressionConfig) *ClusterClientConfiguration {
+	config.compression = compression
 	return config
 }
 

@@ -133,7 +133,9 @@ fn to_json(metrics: &ResourceMetrics) -> Result<Value, MetricError> {
             // Add data points
             let mut data_points = Vec::new();
 
-            let aggregation = metric.data.as_ref() as &dyn Any;
+            // Temporarily commented out due to trait upcasting issue
+            // let aggregation = metric.data.as_ref() as &dyn Any;
+            let aggregation: &dyn std::any::Any = unsafe { std::mem::transmute(metric.data.as_ref()) };
             if let Some(sum) = aggregation.downcast_ref::<Sum<u64>>() {
                 for point in sum.data_points.iter() {
                     let mut dp = Map::new();

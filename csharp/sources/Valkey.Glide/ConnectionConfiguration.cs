@@ -24,9 +24,10 @@ public abstract class ConnectionConfiguration
         public uint DatabaseId;
         public Protocol? Protocol;
         public string? ClientName;
+        public CompressionConfiguration? Compression;
 
         internal FFI.ConnectionConfig ToFfi() =>
-            new(Addresses, TlsMode, ClusterMode, (uint?)RequestTimeout?.TotalMilliseconds, (uint?)ConnectionTimeout?.TotalMilliseconds, ReadFrom, RetryStrategy, AuthenticationInfo, DatabaseId, Protocol, ClientName);
+            new(Addresses, TlsMode, ClusterMode, (uint?)RequestTimeout?.TotalMilliseconds, (uint?)ConnectionTimeout?.TotalMilliseconds, ReadFrom, RetryStrategy, AuthenticationInfo, DatabaseId, Protocol, ClientName, Compression);
     }
 
     /// <summary>
@@ -186,6 +187,7 @@ public abstract class ConnectionConfiguration
         /// <param name="databaseId"><inheritdoc cref="StandaloneClientConfigurationBuilder.DataBaseId" path="/summary" /></param>
         /// <param name="protocol"><inheritdoc cref="ClientConfigurationBuilder{T}.ProtocolVersion" path="/summary" /></param>
         /// <param name="clientName"><inheritdoc cref="ClientConfigurationBuilder{T}.ClientName" path="/summary" /></param>
+        /// <param name="compression"><inheritdoc cref="ClientConfigurationBuilder{T}.Compression" path="/summary" /></param>
         public StandaloneClientConfiguration(
             List<(string? host, ushort? port)> addresses,
             bool? useTls = null,
@@ -197,7 +199,8 @@ public abstract class ConnectionConfiguration
             string? password = null,
             uint? databaseId = null,
             Protocol? protocol = null,
-            string? clientName = null
+            string? clientName = null,
+            CompressionConfiguration? compression = null
             )
         {
             StandaloneClientConfigurationBuilder builder = new();
@@ -211,6 +214,7 @@ public abstract class ConnectionConfiguration
             _ = databaseId.HasValue ? builder.DataBaseId = databaseId.Value : new();
             _ = protocol.HasValue ? builder.ProtocolVersion = protocol.Value : new();
             _ = clientName is not null ? builder.ClientName = clientName : "";
+            _ = compression.HasValue ? builder.Compression = compression.Value : new();
             Request = builder.Build().Request;
         }
     }
@@ -235,6 +239,7 @@ public abstract class ConnectionConfiguration
         /// <param name="retryStrategy"><inheritdoc cref="ClientConfigurationBuilder{T}.ConnectionRetryStrategy" path="/summary" /></param>
         /// <param name="protocol"><inheritdoc cref="ClientConfigurationBuilder{T}.ProtocolVersion" path="/summary" /></param>
         /// <param name="clientName"><inheritdoc cref="ClientConfigurationBuilder{T}.ClientName" path="/summary" /></param>
+        /// <param name="compression"><inheritdoc cref="ClientConfigurationBuilder{T}.Compression" path="/summary" /></param>
         public ClusterClientConfiguration(
             List<(string? host, ushort? port)> addresses,
             bool? useTls = null,
@@ -245,7 +250,8 @@ public abstract class ConnectionConfiguration
             string? username = null,
             string? password = null,
             Protocol? protocol = null,
-            string? clientName = null
+            string? clientName = null,
+            CompressionConfiguration? compression = null
             )
         {
             ClusterClientConfigurationBuilder builder = new();
@@ -258,6 +264,7 @@ public abstract class ConnectionConfiguration
             _ = (username ?? password) is not null ? builder.Authentication = (username, password!) : new();
             _ = protocol.HasValue ? builder.ProtocolVersion = protocol.Value : new();
             _ = clientName is not null ? builder.ClientName = clientName : "";
+            _ = compression.HasValue ? builder.Compression = compression.Value : new();
             Request = builder.Build().Request;
         }
     }
@@ -511,6 +518,30 @@ public abstract class ConnectionConfiguration
         public T WithConnectionRetryStrategy(uint numberOfRetries, uint factor, uint exponentBase, uint? jitterPercent = null)
             => WithConnectionRetryStrategy(new RetryStrategy(numberOfRetries, factor, exponentBase, jitterPercent));
         #endregion
+        #region Compression
+        /// <summary>
+        /// Configuration for automatic compression of values.
+        /// 
+        /// When enabled, values will be automatically compressed before being sent to the server for
+        /// set-type commands and decompressed when received from the server for get-type commands.
+        /// This compression is completely transparent to the application layer and maintains full backward
+        /// compatibility with existing data and non-compression clients.
+        /// </summary>
+        public CompressionConfiguration Compression
+        {
+            set
+            {
+                value.Validate();
+                Config.Compression = value;
+            }
+        }
+        /// <inheritdoc cref="Compression" />
+        public T WithCompression(CompressionConfiguration compression)
+        {
+            Compression = compression;
+            return (T)this;
+        }
+        #endregion
 
         internal ConnectionConfig Build() => Config;
     }
@@ -542,6 +573,14 @@ public abstract class ConnectionConfiguration
             return this;
         }
         #endregion
+        #region Compression
+        /// <inheritdoc cref="ClientConfigurationBuilder{T}.Compression" />
+        public new StandaloneClientConfigurationBuilder WithCompression(CompressionConfiguration compression)
+        {
+            Compression = compression;
+            return this;
+        }
+        #endregion
     }
 
     /// <summary>
@@ -556,5 +595,14 @@ public abstract class ConnectionConfiguration
         /// Complete the configuration with given settings.
         /// </summary>
         public new ClusterClientConfiguration Build() => new() { Request = base.Build() };
+
+        #region Compression
+        /// <inheritdoc cref="ClientConfigurationBuilder{T}.Compression" />
+        public new ClusterClientConfigurationBuilder WithCompression(CompressionConfiguration compression)
+        {
+            Compression = compression;
+            return this;
+        }
+        #endregion
     }
 }

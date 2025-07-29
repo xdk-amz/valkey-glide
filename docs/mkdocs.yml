@@ -4,6 +4,12 @@ repo_url: https://github.com/valkey-io/valkey-glide
 repo_name: GitHub
 docs_dir: markdown
 nav:
+  - Home: index.md
+  - Features:
+      - Automatic Compression: compression.md
+      - Compression Best Practices: compression-best-practices.md
+      - Compression Migration Guide: compression-migration-guide.md
+      - Compression Troubleshooting: compression-troubleshooting.md
   - Python:
       - Client:
           - Standalone: python/glide_client.md

@@ -108,4 +108,16 @@ public abstract class BaseClientConfiguration {
      * {@code false}).
      */
     @Builder.Default private final boolean lazyConnect = false;
+
+    /**
+     * Configuration for automatic compression of values.
+     *
+     * <p>When enabled, values will be automatically compressed before being sent to the server for
+     * set-type commands and decompressed when received from the server for get-type commands. This
+     * compression is completely transparent to the application layer and maintains full backward
+     * compatibility with existing data and non-compression clients.
+     *
+     * <p>If not set, compression is disabled.
+     */
+    private final CompressionConfiguration compression;
 }

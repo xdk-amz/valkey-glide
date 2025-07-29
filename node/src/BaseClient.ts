@@ -26,6 +26,7 @@ import {
     Boundary,
     ClosingError,
     ClusterBatchOptions,
+    CompressionConfiguration,
     ConfigurationError,
     ConnectionError,
     CoordOrigin, // eslint-disable-line @typescript-eslint/no-unused-vars
@@ -251,6 +252,7 @@ import {
     createZUnionStore,
     dropOtelSpan,
     getStatistics,
+    validateCompressionConfiguration,
     valueFromSplitPointer,
 } from ".";
 import {
@@ -766,6 +768,29 @@ export interface BaseClientConfiguration {
      * ```
      */
     lazyConnect?: boolean;
+    /**
+     * Configuration for automatic compression of values.
+     * When enabled, values will be automatically compressed before being sent to the server
+     * and decompressed when received from the server.
+     * 
+     * @remarks
+     * Compression is completely transparent to the application layer and maintains
+     * full backward compatibility with existing data and non-compression clients.
+     * 
+     * @example
+     * ```typescript
+     * const client = await GlideClient.createClient({
+     *   addresses: [{ host: "localhost", port: 6379 }],
+     *   compression: {
+     *     enabled: true,
+     *     backend: CompressionBackend.ZSTD,
+     *     compressionLevel: 3,
+     *     minCompressionSize: 64,
+     *   }
+     * });
+     * ```
+     */
+    compression?: CompressionConfiguration;
 }
 
 /**
@@ -1043,7 +1068,7 @@ export class BaseClient {
                 if (split.length !== 2) {
                     throw new RequestError(
                         "No port provided, expected host to be formatted as `{hostname}:{port}`. Received " +
-                            host,
+                        host,
                     );
                 }
 
@@ -1109,8 +1134,8 @@ export class BaseClient {
                     err instanceof ValkeyError
                         ? err
                         : new Error(
-                              `Decoding error: '${err}'. \n NOTE: If this was thrown during a command with write operations, the data could be UNRECOVERABLY LOST.`,
-                          ),
+                            `Decoding error: '${err}'. \n NOTE: If this was thrown during a command with write operations, the data could be UNRECOVERABLY LOST.`,
+                        ),
                 );
             }
         } else if (message.constantResponse === response.ConstantResponse.OK) {
@@ -6710,12 +6735,12 @@ export class BaseClient {
         ReadFrom,
         connection_request.ReadFrom
     > = {
-        primary: connection_request.ReadFrom.Primary,
-        preferReplica: connection_request.ReadFrom.PreferReplica,
-        AZAffinity: connection_request.ReadFrom.AZAffinity,
-        AZAffinityReplicasAndPrimary:
-            connection_request.ReadFrom.AZAffinityReplicasAndPrimary,
-    };
+            primary: connection_request.ReadFrom.Primary,
+            preferReplica: connection_request.ReadFrom.PreferReplica,
+            AZAffinity: connection_request.ReadFrom.AZAffinity,
+            AZAffinityReplicasAndPrimary:
+                connection_request.ReadFrom.AZAffinityReplicasAndPrimary,
+        };
 
     /**
      * Returns the number of messages that were successfully acknowledged by the consumer group member of a stream.
@@ -8126,8 +8151,8 @@ export class BaseClient {
             res === null
                 ? null
                 : res!.map((r) => {
-                      return { key: r.key, elements: r.value };
-                  })[0],
+                    return { key: r.key, elements: r.value };
+                })[0],
         );
     }
 
@@ -8170,8 +8195,8 @@ export class BaseClient {
             res === null
                 ? null
                 : res!.map((r) => {
-                      return { key: r.key, elements: r.value };
-                  })[0],
+                    return { key: r.key, elements: r.value };
+                })[0],
         );
     }
 
@@ -8391,11 +8416,11 @@ export class BaseClient {
             : connection_request.ReadFrom.Primary;
         const authenticationInfo =
             options.credentials !== undefined &&
-            "password" in options.credentials
+                "password" in options.credentials
                 ? {
-                      password: options.credentials.password,
-                      username: options.credentials.username,
-                  }
+                    password: options.credentials.password,
+                    username: options.credentials.username,
+                }
                 : undefined;
         const protocol = options.protocol as
             | connection_request.ProtocolVersion
@@ -8410,6 +8435,11 @@ export class BaseClient {
             throw new ConfigurationError(
                 `clientAz must be set when readFrom is set to ${options.readFrom}`,
             );
+        }
+
+        // Validate compression configuration if provided
+        if (options.compression) {
+            validateCompressionConfiguration(options.compression);
         }
 
         return {
@@ -8427,6 +8457,31 @@ export class BaseClient {
             clientAz: options.clientAz ?? null,
             connectionRetryStrategy: options.connectionBackoff,
             lazyConnect: options.lazyConnect ?? false,
+            compressionConfig: options.compression
+                ? this.createCompressionConfig(options.compression)
+                : undefined,
+        };
+    }
+
+    /**
+     * @internal
+     * Converts TypeScript compression configuration to protobuf format.
+     */
+    private createCompressionConfig(
+        config: CompressionConfiguration,
+    ): connection_request.ICompressionConfig {
+        // Map TypeScript enum to protobuf enum
+        const backendMap = {
+            ZSTD: connection_request.CompressionBackend.ZSTD,
+            LZ4: connection_request.CompressionBackend.LZ4,
+        };
+
+        return {
+            enabled: config.enabled,
+            backend: backendMap[config.backend],
+            compressionLevel: config.compressionLevel,
+            minCompressionSize: config.minCompressionSize,
+            maxCompressionSize: config.maxCompressionSize,
         };
     }
 

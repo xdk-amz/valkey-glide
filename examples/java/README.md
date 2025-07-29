@@ -11,6 +11,19 @@ To run the Cluster example:
 cd valkey-glide/examples/java
 ./gradlew :runCluster
 ```
+To run the Compression example:
+```
+cd valkey-glide/examples/java
+./gradlew :runCompression
+```
+
+## Examples
+
+- **StandaloneExample.java** - Basic standalone client usage
+- **ClusterExample.java** - Basic cluster client usage
+- **CompressionExample.java** - Comprehensive compression feature demonstration
+- **GlideJsonExample.java** - JSON module usage examples
+- **GlideFtExample.java** - Full-text search examples
 
 ## Version
 These examples are running `valkey-glide` version `1.+`. In order to change the version, update the following section in the `build.gradle` file:

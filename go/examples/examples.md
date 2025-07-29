@@ -1,6 +1,14 @@
 # Go Examples
 
-Go provides native support for Examples which are a great way to document how to use the Valkey Glide Go client. Examples are also run as tests, so they can be used to ensure that the client code behaves as expected. For more details on running the example tests, or writing your own examples, please see the [Developer Guide](../DEVELOPER.md). In place of creating an arbitrary example, you can find examples for each of the supported commands in the following files:
+Go provides native support for Examples which are a great way to document how to use the Valkey Glide Go client. Examples are also run as tests, so they can be used to ensure that the client code behaves as expected. For more details on running the example tests, or writing your own examples, please see the [Developer Guide](../DEVELOPER.md). 
+
+## Feature Examples
+
+- [compression_example_test.go](../compression_example_test.go) - Comprehensive compression feature demonstration
+
+## Command Examples
+
+You can find examples for each of the supported commands in the following files:
 
 - [bitmap_commands_test.go](../bitmap_commands_test.go)
 - [connection_management_commands_test.go](../connection_management_commands_test.go)

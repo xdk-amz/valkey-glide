@@ -153,6 +153,17 @@ macOS:
         ```
 
 
+## Advanced Features
+
+### Automatic Compression
+
+Valkey GLIDE supports automatic compression to reduce bandwidth and storage usage:
+
+- **[Compression Guide](compression.md)** - Complete guide to configuring and using compression
+- **[Compression Best Practices](compression-best-practices.md)** - Best practices and optimization recommendations
+- **[Compression Migration Guide](compression-migration-guide.md)** - Step-by-step migration guide for existing applications
+- **[Compression Troubleshooting](compression-troubleshooting.md)** - Troubleshooting guide for compression issues
+
 ## References
 
 === "Python"
