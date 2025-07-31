@@ -28,8 +28,8 @@ The Go compression benchmark tests:
 ### Quick Start
 
 ```bash
-# Make sure you're in the go/benchmarks directory
-cd go/benchmarks
+# Make sure you're in the benchmarks/go directory
+cd benchmarks/go
 
 # Run the benchmark using the shell script
 ./run_compression_benchmark.sh
@@ -59,7 +59,7 @@ The benchmark uses the following configuration:
 
 ## Test Datasets
 
-The benchmark uses standardized datasets from `../../java/benchmarks/data/`:
+The benchmark uses standardized datasets from `../data/`:
 
 - **json_objects**: JSON data structures
 - **app_logs**: Application log entries

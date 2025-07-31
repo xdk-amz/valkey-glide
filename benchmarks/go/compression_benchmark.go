@@ -50,7 +50,7 @@ func (cb *CompressionBenchmark) LoadTestDatasets() map[string][]string {
 	fmt.Println("📊 Loading standardized test datasets...")
 	
 	datasets := make(map[string][]string)
-	dataDir := "../../java/benchmarks/data"
+	dataDir := "../data"
 	
 	// Load datasets from standardized files
 	datasets["json_objects"] = cb.loadDatasetFromFile(filepath.Join(dataDir, "json_objects.txt"), false)

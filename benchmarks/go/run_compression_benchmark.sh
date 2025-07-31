@@ -20,7 +20,7 @@ echo "✅ Redis/Valkey server is running"
 # Check if we're in the right directory
 if [ ! -f "compression_benchmark.go" ]; then
     echo "❌ Error: compression_benchmark.go not found"
-    echo "Please run this script from the go/benchmarks directory"
+    echo "Please run this script from the benchmarks/go directory"
     exit 1
 fi
 

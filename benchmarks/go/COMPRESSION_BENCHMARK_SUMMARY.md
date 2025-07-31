@@ -16,7 +16,7 @@ Successfully implemented a comprehensive Go compression benchmark for the GLIDE 
 ## Key Features Implemented
 
 ### 1. Standardized Dataset Loading
-- Uses the same datasets as Java/Python benchmarks from `../../java/benchmarks/data/`
+- Uses the same datasets as Java/Python benchmarks from `../data/`
 - Supports both line-separated and `---`-separated formats
 - Graceful fallback to generated data if files are missing
 - Comprehensive dataset information display
@@ -66,8 +66,8 @@ Successfully implemented a comprehensive Go compression benchmark for the GLIDE 
 ### Dataset Compatibility
 ```go
 // Uses same datasets as Java/Python
-datasets["json_objects"] = cb.loadDatasetFromFile("../../java/benchmarks/data/json_objects.txt", false)
-datasets["xml_docs"] = cb.loadDatasetFromFile("../../java/benchmarks/data/xml_docs.txt", true) // --- separator
+datasets["json_objects"] = cb.loadDatasetFromFile("../data/json_objects.txt", false)
+datasets["xml_docs"] = cb.loadDatasetFromFile("../data/xml_docs.txt", true) // --- separator
 ```
 
 ### Compression Configuration
@@ -119,7 +119,7 @@ Level  Dataset      Original   Compressed Ratio    TPS
 
 ### Quick Start
 ```bash
-cd go/benchmarks
+cd benchmarks/go
 ./run_compression_benchmark.sh
 ```
 

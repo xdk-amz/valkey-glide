@@ -42,7 +42,7 @@ class CompressionBenchmark:
         print("📊 Loading standardized test datasets...")
         
         datasets = {}
-        data_dir = Path(__file__).parent.parent.parent / "java" / "benchmarks" / "data"
+        data_dir = Path(__file__).parent.parent / "data"
         
         # Load datasets from standardized files
         datasets["json_objects"] = self._load_dataset_from_file(data_dir / "json_objects.txt", False)

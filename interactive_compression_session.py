@@ -10,7 +10,14 @@ synchronously in an interactive session.
 """
 
 import asyncio
-import redis
+try:
+    import redis
+    REDIS_AVAILABLE = True
+except ImportError:
+    REDIS_AVAILABLE = False
+    print("⚠️  redis package not found. Memory usage commands will be limited.")
+    print("   Install with: pip install redis")
+
 from glide import (
     GlideClient,
     GlideClientConfiguration,
@@ -84,6 +91,15 @@ class SyncGlideWrapper:
         """Get server info (synchronous)"""
         return self._run_async(self._client.info(sections))
     
+    def memory_usage(self, key):
+        """Get memory usage for a key using GLIDE's custom command"""
+        try:
+            result = self._run_async(self._client.custom_command(["MEMORY", "USAGE", key]))
+            return int(result) if result is not None else 0
+        except Exception as e:
+            print(f"⚠️  Could not get memory usage: {e}")
+            return 0
+    
     def close(self):
         """Close the client (synchronous)"""
         self._run_async(self._client.close())
@@ -114,15 +130,20 @@ def setup_session():
     async_client = loop.run_until_complete(GlideClient.create(config))
     client = SyncGlideWrapper(async_client, loop)
     
-    # Also create a direct Redis client for memory measurements
-    redis_client = redis.Redis(host='localhost', port=6379, decode_responses=False)
+    # Create a direct Redis client for memory measurements if available
+    redis_client = None
+    if REDIS_AVAILABLE:
+        redis_client = redis.Redis(host='localhost', port=6379, decode_responses=False)
+        print("✅ Direct Redis client created for memory measurements!")
     
     print("✅ Compression-enabled GLIDE client created!")
-    print("✅ Direct Redis client created for memory measurements!")
     print()
     print("📋 Available objects:")
     print("   • client - Sync GLIDE wrapper with ZSTD compression (level 3, min 64 bytes)")
-    print("   • redis_client - Direct Redis client for MEMORY USAGE commands")
+    if REDIS_AVAILABLE:
+        print("   • redis_client - Direct Redis client for MEMORY USAGE commands")
+    else:
+        print("   • client.memory_usage(key) - Memory usage via GLIDE (limited functionality)")
     print()
     print("🔧 Compression Configuration:")
     print("   • Backend: ZSTD")
@@ -139,7 +160,10 @@ def setup_session():
     print("   print(f'Retrieved: {result}')")
     print()
     print("   # Check memory usage in Redis")
-    print("   memory_usage = redis_client.memory_usage('test_key')")
+    if REDIS_AVAILABLE:
+        print("   memory_usage = redis_client.memory_usage('test_key')")
+    else:
+        print("   memory_usage = client.memory_usage('test_key')")
     print("   print(f'Memory usage: {memory_usage} bytes')")
     print()
     print("   # Quick compression test")
@@ -158,7 +182,11 @@ def quick_test(data, key_suffix=""):
     key = f"test{key_suffix}"
     client.set(key, data)
     result = client.get(key)
-    memory = redis_client.memory_usage(key)
+    
+    if redis_client:
+        memory = redis_client.memory_usage(key)
+    else:
+        memory = client.memory_usage(key)
     
     print(f"Data: {len(data)} bytes")
     print(f"Retrieved: {len(result)} bytes")
@@ -170,7 +198,10 @@ def compare_compression(data, key_base="compare"):
     """Compare compressed vs uncompressed storage"""
     # Compressed
     client.set(f"{key_base}_compressed", data)
-    compressed_memory = redis_client.memory_usage(f"{key_base}_compressed")
+    if redis_client:
+        compressed_memory = redis_client.memory_usage(f"{key_base}_compressed")
+    else:
+        compressed_memory = client.memory_usage(f"{key_base}_compressed")
     
     # Uncompressed - create a new client without compression
     config_no_compression = GlideClientConfiguration([NodeAddress(host="localhost", port=6379)])
@@ -180,7 +211,10 @@ def compare_compression(data, key_base="compare"):
     client_no_compression = SyncGlideWrapper(async_client_no_compression, temp_loop)
     
     client_no_compression.set(f"{key_base}_uncompressed", data)
-    uncompressed_memory = redis_client.memory_usage(f"{key_base}_uncompressed")
+    if redis_client:
+        uncompressed_memory = redis_client.memory_usage(f"{key_base}_uncompressed")
+    else:
+        uncompressed_memory = client_no_compression.memory_usage(f"{key_base}_uncompressed")
     client_no_compression.close()
     
     ratio = uncompressed_memory / compressed_memory if compressed_memory > 0 else 0
@@ -243,7 +277,7 @@ print("   • client.get_raw(key) - Get raw bytes value")
 print("   • client.delete(key1, key2, ...) - Delete keys")
 print("   • client.mset({key1: val1, key2: val2}) - Set multiple")
 print("   • client.mget([key1, key2]) - Get multiple")
-print("   • redis_client.memory_usage(key) - Check Redis memory usage")
+print("   • client.memory_usage(key) or redis_client.memory_usage(key) - Check Redis memory usage")
 print("   • quick_test('data') - Quick compression test")
 print("   • compare_compression('data') - Compare compressed vs uncompressed")
 print("   • create_client_with_level(6) - Create client with specific compression level")
@@ -258,5 +292,6 @@ except KeyboardInterrupt:
 finally:
     # Clean up
     client.close()
-    redis_client.close()
+    if redis_client:
+        redis_client.close()
     print("✅ Session closed!")
