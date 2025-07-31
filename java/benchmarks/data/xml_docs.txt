@@ -1,89 +1,302 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<product>
-  <id>1001</id>
-  <name>Wireless Headphones</name>
-  <description>Premium noise-cancelling wireless headphones with superior sound quality</description>
-  <price>299.99</price>
-  <category>Electronics</category>
-  <specifications>
-    <battery>30 hours</battery>
-    <connectivity>Bluetooth 5.0</connectivity>
-    <weight>250g</weight>
-  </specifications>
+<product id="PROD-001">
+    <name>Wireless Bluetooth Headphones</name>
+    <description>Premium over-ear headphones with active noise cancellation and 30-hour battery life</description>
+    <price currency="USD">299.99</price>
+    <category>Electronics</category>
+    <specifications>
+        <battery_life>30 hours</battery_life>
+        <connectivity>Bluetooth 5.0</connectivity>
+        <noise_cancellation>Active</noise_cancellation>
+        <weight>250g</weight>
+        <color_options>
+            <color>Black</color>
+            <color>White</color>
+            <color>Silver</color>
+        </color_options>
+    </specifications>
+    <availability>
+        <in_stock>true</in_stock>
+        <quantity>150</quantity>
+        <warehouse_location>US-WEST-01</warehouse_location>
+    </availability>
+    <reviews>
+        <review id="REV-001">
+            <rating>5</rating>
+            <comment>Excellent sound quality and comfort</comment>
+            <reviewer>John D.</reviewer>
+            <date>2024-01-15</date>
+        </review>
+        <review id="REV-002">
+            <rating>4</rating>
+            <comment>Great battery life, slightly heavy</comment>
+            <reviewer>Sarah M.</reviewer>
+            <date>2024-01-18</date>
+        </review>
+    </reviews>
 </product>
 ---
 <?xml version="1.0" encoding="UTF-8"?>
-<order>
-  <orderId>2001</orderId>
-  <customer>
-    <name>John Smith</name>
-    <email>john.smith@example.com</email>
-    <address>123 Main Street, New York, NY 10001</address>
-  </customer>
-  <items>
-    <item>
-      <productId>1001</productId>
-      <quantity>2</quantity>
-      <unitPrice>299.99</unitPrice>
-    </item>
-    <item>
-      <productId>1002</productId>
-      <quantity>1</quantity>
-      <unitPrice>149.99</unitPrice>
-    </item>
-  </items>
-  <total>749.97</total>
-  <status>processing</status>
+<order id="ORD-2024-001">
+    <customer>
+        <customer_id>CUST-12345</customer_id>
+        <name>Michael Johnson</name>
+        <email>michael.johnson@email.com</email>
+        <phone>+1-555-0123</phone>
+        <address>
+            <street>123 Main Street</street>
+            <city>New York</city>
+            <state>NY</state>
+            <zip_code>10001</zip_code>
+            <country>USA</country>
+        </address>
+    </customer>
+    <order_details>
+        <order_date>2024-01-20T10:30:00Z</order_date>
+        <status>processing</status>
+        <total_amount currency="USD">459.97</total_amount>
+        <items>
+            <item id="ITEM-001">
+                <product_id>PROD-001</product_id>
+                <name>Wireless Bluetooth Headphones</name>
+                <quantity>1</quantity>
+                <unit_price>299.99</unit_price>
+                <total_price>299.99</total_price>
+            </item>
+            <item id="ITEM-002">
+                <product_id>PROD-002</product_id>
+                <name>USB-C Charging Cable</name>
+                <quantity>2</quantity>
+                <unit_price>19.99</unit_price>
+                <total_price>39.98</total_price>
+            </item>
+            <item id="ITEM-003">
+                <product_id>PROD-003</product_id>
+                <name>Phone Case</name>
+                <quantity>1</quantity>
+                <unit_price>24.99</unit_price>
+                <total_price>24.99</total_price>
+            </item>
+        </items>
+        <shipping>
+            <method>standard</method>
+            <cost>9.99</cost>
+            <estimated_delivery>2024-01-25</estimated_delivery>
+        </shipping>
+        <payment>
+            <method>credit_card</method>
+            <card_type>Visa</card_type>
+            <last_four_digits>1234</last_four_digits>
+            <transaction_id>TXN-789012</transaction_id>
+        </payment>
+    </order_details>
 </order>
 ---
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
-  <database>
-    <host>localhost</host>
-    <port>5432</port>
-    <name>production_db</name>
-    <pool>
-      <minConnections>5</minConnections>
-      <maxConnections>20</maxConnections>
-      <timeout>30000</timeout>
-    </pool>
-  </database>
-  <cache>
-    <enabled>true</enabled>
-    <ttl>3600</ttl>
-    <maxSize>1000</maxSize>
-  </cache>
-  <logging>
-    <level>INFO</level>
-    <file>/var/log/app.log</file>
-    <rotation>daily</rotation>
-  </logging>
+    <application>
+        <name>E-Commerce Platform</name>
+        <version>2.1.0</version>
+        <environment>production</environment>
+        <debug_mode>false</debug_mode>
+    </application>
+    <database>
+        <host>db-cluster.internal.com</host>
+        <port>5432</port>
+        <name>ecommerce_prod</name>
+        <username>app_user</username>
+        <connection_pool>
+            <min_connections>5</min_connections>
+            <max_connections>20</max_connections>
+            <timeout>30</timeout>
+        </connection_pool>
+        <ssl_enabled>true</ssl_enabled>
+    </database>
+    <cache>
+        <provider>Redis</provider>
+        <host>cache-cluster.internal.com</host>
+        <port>6379</port>
+        <ttl_default>3600</ttl_default>
+        <max_memory>2GB</max_memory>
+    </cache>
+    <logging>
+        <level>INFO</level>
+        <format>JSON</format>
+        <output>
+            <console>true</console>
+            <file>
+                <enabled>true</enabled>
+                <path>/var/log/app/application.log</path>
+                <max_size>100MB</max_size>
+                <max_files>10</max_files>
+            </file>
+        </output>
+    </logging>
+    <security>
+        <jwt>
+            <secret_key>your-secret-key-here</secret_key>
+            <expiration>86400</expiration>
+            <algorithm>HS256</algorithm>
+        </jwt>
+        <cors>
+            <enabled>true</enabled>
+            <allowed_origins>
+                <origin>https://www.example.com</origin>
+                <origin>https://admin.example.com</origin>
+            </allowed_origins>
+            <allowed_methods>
+                <method>GET</method>
+                <method>POST</method>
+                <method>PUT</method>
+                <method>DELETE</method>
+            </allowed_methods>
+        </cors>
+        <rate_limiting>
+            <enabled>true</enabled>
+            <requests_per_minute>100</requests_per_minute>
+            <burst_limit>150</burst_limit>
+        </rate_limiting>
+    </security>
+    <external_services>
+        <payment_gateway>
+            <provider>Stripe</provider>
+            <api_key>sk_live_your_stripe_key</api_key>
+            <webhook_secret>whsec_your_webhook_secret</webhook_secret>
+            <timeout>10</timeout>
+        </payment_gateway>
+        <email_service>
+            <provider>SendGrid</provider>
+            <api_key>SG.your_sendgrid_key</api_key>
+            <from_email>noreply@example.com</from_email>
+            <templates>
+                <welcome>d-welcome-template-id</welcome>
+                <order_confirmation>d-order-confirmation-id</order_confirmation>
+                <password_reset>d-password-reset-id</password_reset>
+            </templates>
+        </email_service>
+    </external_services>
 </configuration>
 ---
 <?xml version="1.0" encoding="UTF-8"?>
-<invoice>
-  <invoiceId>INV-2024-001</invoiceId>
-  <date>2024-01-15</date>
-  <billTo>
-    <company>Acme Corporation</company>
-    <contact>Jane Doe</contact>
-    <address>456 Business Ave, San Francisco, CA 94105</address>
-  </billTo>
-  <lineItems>
-    <item>
-      <description>Software License</description>
-      <quantity>10</quantity>
-      <rate>99.99</rate>
-      <amount>999.90</amount>
-    </item>
-    <item>
-      <description>Support Services</description>
-      <quantity>1</quantity>
-      <rate>500.00</rate>
-      <amount>500.00</amount>
-    </item>
-  </lineItems>
-  <subtotal>1499.90</subtotal>
-  <tax>149.99</tax>
-  <total>1649.89</total>
-</invoice>
+<inventory_report>
+    <report_metadata>
+        <generated_date>2024-01-20T15:30:00Z</generated_date>
+        <report_id>RPT-INV-2024-001</report_id>
+        <warehouse>US-WEST-01</warehouse>
+        <total_products>1250</total_products>
+        <total_value currency="USD">2,450,750.00</total_value>
+    </report_metadata>
+    <categories>
+        <category name="Electronics">
+            <total_items>450</total_items>
+            <total_value>1,250,000.00</total_value>
+            <products>
+                <product id="PROD-001">
+                    <name>Wireless Bluetooth Headphones</name>
+                    <sku>WBH-001</sku>
+                    <quantity>150</quantity>
+                    <unit_cost>180.00</unit_cost>
+                    <unit_price>299.99</unit_price>
+                    <total_value>27,000.00</total_value>
+                    <reorder_level>50</reorder_level>
+                    <supplier>TechSupplier Inc.</supplier>
+                </product>
+                <product id="PROD-002">
+                    <name>USB-C Charging Cable</name>
+                    <sku>UCC-002</sku>
+                    <quantity>500</quantity>
+                    <unit_cost>8.00</unit_cost>
+                    <unit_price>19.99</unit_price>
+                    <total_value>4,000.00</total_value>
+                    <reorder_level>100</reorder_level>
+                    <supplier>CableWorks Ltd.</supplier>
+                </product>
+                <product id="PROD-003">
+                    <name>Smartphone Case</name>
+                    <sku>SPC-003</sku>
+                    <quantity>300</quantity>
+                    <unit_cost>12.00</unit_cost>
+                    <unit_price>24.99</unit_price>
+                    <total_value>3,600.00</total_value>
+                    <reorder_level>75</reorder_level>
+                    <supplier>ProtectCase Co.</supplier>
+                </product>
+            </products>
+        </category>
+        <category name="Clothing">
+            <total_items>400</total_items>
+            <total_value>650,000.00</total_value>
+            <products>
+                <product id="PROD-101">
+                    <name>Cotton T-Shirt</name>
+                    <sku>CTS-101</sku>
+                    <quantity>200</quantity>
+                    <unit_cost>8.00</unit_cost>
+                    <unit_price>19.99</unit_price>
+                    <total_value>1,600.00</total_value>
+                    <reorder_level>50</reorder_level>
+                    <supplier>Fashion Forward Inc.</supplier>
+                </product>
+                <product id="PROD-102">
+                    <name>Denim Jeans</name>
+                    <sku>DJ-102</sku>
+                    <quantity>150</quantity>
+                    <unit_cost>25.00</unit_cost>
+                    <unit_price>59.99</unit_price>
+                    <total_value>3,750.00</total_value>
+                    <reorder_level>30</reorder_level>
+                    <supplier>Denim Works Ltd.</supplier>
+                </product>
+            </products>
+        </category>
+        <category name="Home & Garden">
+            <total_items>400</total_items>
+            <total_value>550,750.00</total_value>
+            <products>
+                <product id="PROD-201">
+                    <name>LED Desk Lamp</name>
+                    <sku>LDL-201</sku>
+                    <quantity>100</quantity>
+                    <unit_cost>35.00</unit_cost>
+                    <unit_price>79.99</unit_price>
+                    <total_value>3,500.00</total_value>
+                    <reorder_level>25</reorder_level>
+                    <supplier>Lighting Solutions Inc.</supplier>
+                </product>
+                <product id="PROD-202">
+                    <name>Garden Tool Set</name>
+                    <sku>GTS-202</sku>
+                    <quantity>75</quantity>
+                    <unit_cost>45.00</unit_cost>
+                    <unit_price>99.99</unit_price>
+                    <total_value>3,375.00</total_value>
+                    <reorder_level>20</reorder_level>
+                    <supplier>Garden Pro Tools</supplier>
+                </product>
+            </products>
+        </category>
+    </categories>
+    <low_stock_alerts>
+        <alert>
+            <product_id>PROD-003</product_id>
+            <name>Smartphone Case</name>
+            <current_stock>300</current_stock>
+            <reorder_level>75</reorder_level>
+            <status>OK</status>
+        </alert>
+        <alert>
+            <product_id>PROD-102</product_id>
+            <name>Denim Jeans</name>
+            <current_stock>150</current_stock>
+            <reorder_level>30</reorder_level>
+            <status>OK</status>
+        </alert>
+        <alert>
+            <product_id>PROD-202</product_id>
+            <name>Garden Tool Set</name>
+            <current_stock>75</current_stock>
+            <reorder_level>20</reorder_level>
+            <status>OK</status>
+        </alert>
+    </low_stock_alerts>
+</inventory_report>
