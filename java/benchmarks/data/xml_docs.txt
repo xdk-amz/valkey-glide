@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<product>
+  <id>1001</id>
+  <name>Wireless Headphones</name>
+  <description>Premium noise-cancelling wireless headphones with superior sound quality</description>
+  <price>299.99</price>
+  <category>Electronics</category>
+  <specifications>
+    <battery>30 hours</battery>
+    <connectivity>Bluetooth 5.0</connectivity>
+    <weight>250g</weight>
+  </specifications>
+</product>
+---
+<?xml version="1.0" encoding="UTF-8"?>
+<order>
+  <orderId>2001</orderId>
+  <customer>
+    <name>John Smith</name>
+    <email>john.smith@example.com</email>
+    <address>123 Main Street, New York, NY 10001</address>
+  </customer>
+  <items>
+    <item>
+      <productId>1001</productId>
+      <quantity>2</quantity>
+      <unitPrice>299.99</unitPrice>
+    </item>
+    <item>
+      <productId>1002</productId>
+      <quantity>1</quantity>
+      <unitPrice>149.99</unitPrice>
+    </item>
+  </items>
+  <total>749.97</total>
+  <status>processing</status>
+</order>
+---
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <database>
+    <host>localhost</host>
+    <port>5432</port>
+    <name>production_db</name>
+    <pool>
+      <minConnections>5</minConnections>
+      <maxConnections>20</maxConnections>
+      <timeout>30000</timeout>
+    </pool>
+  </database>
+  <cache>
+    <enabled>true</enabled>
+    <ttl>3600</ttl>
+    <maxSize>1000</maxSize>
+  </cache>
+  <logging>
+    <level>INFO</level>
+    <file>/var/log/app.log</file>
+    <rotation>daily</rotation>
+  </logging>
+</configuration>
+---
+<?xml version="1.0" encoding="UTF-8"?>
+<invoice>
+  <invoiceId>INV-2024-001</invoiceId>
+  <date>2024-01-15</date>
+  <billTo>
+    <company>Acme Corporation</company>
+    <contact>Jane Doe</contact>
+    <address>456 Business Ave, San Francisco, CA 94105</address>
+  </billTo>
+  <lineItems>
+    <item>
+      <description>Software License</description>
+      <quantity>10</quantity>
+      <rate>99.99</rate>
+      <amount>999.90</amount>
+    </item>
+    <item>
+      <description>Support Services</description>
+      <quantity>1</quantity>
+      <rate>500.00</rate>
+      <amount>500.00</amount>
+    </item>
+  </lineItems>
+  <subtotal>1499.90</subtotal>
+  <tax>149.99</tax>
+  <total>1649.89</total>
+</invoice>

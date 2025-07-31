@@ -1,0 +1,20 @@
+2024-01-01 12:00:01 [INFO] UserService - Processing login request for user123 | Duration: 45ms | Session: sess_abc123
+2024-01-01 12:00:02 [INFO] OrderService - Creating new order | User: user456 | Items: 3 | Total: $89.99
+2024-01-01 12:00:03 [WARN] PaymentService - Payment processing delayed | Gateway: stripe | Retry: 1/3
+2024-01-01 12:00:04 [ERROR] NotificationService - Failed to send email notification | User: user789 | Error: SMTP timeout
+2024-01-01 12:00:05 [DEBUG] UserService - Cache miss for user profile | User: user101 | Loading from database
+2024-01-01 12:00:06 [INFO] OrderService - Order status updated | OrderId: 12345 | Status: processing
+2024-01-01 12:00:07 [INFO] PaymentService - Payment successful | Amount: $199.99 | Method: credit_card
+2024-01-01 12:00:08 [WARN] UserService - Multiple login attempts detected | User: user999 | IP: 192.168.1.100
+2024-01-01 12:00:09 [INFO] NotificationService - Push notification sent | User: user555 | Type: order_update
+2024-01-01 12:00:10 [ERROR] OrderService - Inventory check failed | Product: prod_abc | Stock: 0
+2024-01-01 12:00:11 [DEBUG] PaymentService - Validating payment method | User: user222 | Method: paypal
+2024-01-01 12:00:12 [INFO] UserService - User profile updated | User: user333 | Fields: email,preferences
+2024-01-01 12:00:13 [WARN] NotificationService - Email delivery delayed | Queue size: 1500 | Estimated delay: 5min
+2024-01-01 12:00:14 [INFO] OrderService - Shipping label generated | OrderId: 67890 | Carrier: fedex
+2024-01-01 12:00:15 [ERROR] UserService - Database connection timeout | Pool: primary | Retry: 2/3
+2024-01-01 12:00:16 [INFO] PaymentService - Refund processed | Amount: $49.99 | Reason: customer_request
+2024-01-01 12:00:17 [DEBUG] OrderService - Calculating shipping cost | Weight: 2.5kg | Zone: domestic
+2024-01-01 12:00:18 [INFO] NotificationService - SMS notification sent | User: user777 | Message: order_shipped
+2024-01-01 12:00:19 [WARN] UserService - Password reset requested | User: user888 | IP: 10.0.0.50
+2024-01-01 12:00:20 [INFO] OrderService - Order completed | OrderId: 11111 | Duration: 3.5 days

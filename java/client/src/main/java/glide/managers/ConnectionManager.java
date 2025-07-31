@@ -10,6 +10,7 @@ import connection_request.ConnectionRequestOuterClass.PubSubSubscriptions;
 import connection_request.ConnectionRequestOuterClass.TlsMode;
 import glide.api.models.configuration.AdvancedBaseClientConfiguration;
 import glide.api.models.configuration.BaseClientConfiguration;
+import glide.api.models.configuration.CompressionBackend;
 import glide.api.models.configuration.GlideClientConfiguration;
 import glide.api.models.configuration.GlideClusterClientConfiguration;
 import glide.api.models.configuration.NodeAddress;
@@ -162,6 +163,23 @@ public class ConnectionManager {
             connectionRequestBuilder.setLazyConnect(configuration.isLazyConnect());
         }
 
+        if (configuration.getCompression() != null) {
+            var compressionConfigBuilder = ConnectionRequestOuterClass.CompressionConfig.newBuilder()
+                    .setEnabled(configuration.getCompression().isEnabled())
+                    .setBackend(mapCompressionBackend(configuration.getCompression().getBackend()))
+                    .setMinCompressionSize(configuration.getCompression().getMinCompressionSize());
+            
+            if (configuration.getCompression().getCompressionLevel() != null) {
+                compressionConfigBuilder.setCompressionLevel(configuration.getCompression().getCompressionLevel());
+            }
+            
+            if (configuration.getCompression().getMaxCompressionSize() != null) {
+                compressionConfigBuilder.setMaxCompressionSize(configuration.getCompression().getMaxCompressionSize());
+            }
+            
+            connectionRequestBuilder.setCompressionConfig(compressionConfigBuilder.build());
+        }
+
         return connectionRequestBuilder;
     }
 
@@ -283,6 +301,23 @@ public class ConnectionManager {
                 return ConnectionRequestOuterClass.ReadFrom.AZAffinityReplicasAndPrimary;
             default:
                 return ConnectionRequestOuterClass.ReadFrom.Primary;
+        }
+    }
+
+    /**
+     * Map CompressionBackend enum to protobuf CompressionBackend enum.
+     *
+     * @param backend
+     * @return Protobuf defined CompressionBackend enum
+     */
+    private ConnectionRequestOuterClass.CompressionBackend mapCompressionBackend(CompressionBackend backend) {
+        switch (backend) {
+            case ZSTD:
+                return ConnectionRequestOuterClass.CompressionBackend.ZSTD;
+            case LZ4:
+                return ConnectionRequestOuterClass.CompressionBackend.LZ4;
+            default:
+                return ConnectionRequestOuterClass.CompressionBackend.ZSTD;
         }
     }
 

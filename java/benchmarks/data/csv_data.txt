@@ -1,0 +1,21 @@
+id,name,department,location,salary,start_date,manager,project
+1,Employee1,Engineering,New York,75000,2024-01-15,manager1,project5
+2,Employee2,Marketing,San Francisco,65000,2024-01-20,manager2,project3
+3,Employee3,Sales,London,55000,2024-02-01,manager3,project1
+4,Employee4,Support,Tokyo,50000,2024-02-10,manager1,project2
+5,Employee5,Finance,Sydney,70000,2024-02-15,manager4,project4
+6,Employee6,Engineering,New York,80000,2024-03-01,manager1,project5
+7,Employee7,Marketing,San Francisco,62000,2024-03-05,manager2,project3
+8,Employee8,Sales,London,58000,2024-03-10,manager3,project1
+9,Employee9,Support,Tokyo,52000,2024-03-15,manager1,project2
+10,Employee10,Finance,Sydney,72000,2024-03-20,manager4,project4
+11,Employee11,Engineering,New York,85000,2024-04-01,manager5,project6
+12,Employee12,Marketing,San Francisco,68000,2024-04-05,manager2,project7
+13,Employee13,Sales,London,60000,2024-04-10,manager3,project8
+14,Employee14,Support,Tokyo,54000,2024-04-15,manager6,project9
+15,Employee15,Finance,Sydney,74000,2024-04-20,manager4,project10
+16,Employee16,Engineering,New York,78000,2024-05-01,manager1,project5
+17,Employee17,Marketing,San Francisco,66000,2024-05-05,manager2,project3
+18,Employee18,Sales,London,59000,2024-05-10,manager3,project1
+19,Employee19,Support,Tokyo,53000,2024-05-15,manager1,project2
+20,Employee20,Finance,Sydney,73000,2024-05-20,manager4,project4

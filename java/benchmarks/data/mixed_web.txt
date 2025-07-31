@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sample Web Page</title>
+    <style>
+        .header { background-color: #333; color: white; padding: 10px; }
+        .content { margin: 20px; font-family: Arial, sans-serif; }
+        .footer { background-color: #f0f0f0; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Welcome to Our Website</h1>
+    </div>
+    <div class="content">
+        <p>This is sample content that might appear on a web page.</p>
+        <p>It contains mixed text, HTML tags, and repeated patterns.</p>
+    </div>
+</body>
+</html>
+---
+/* CSS Stylesheet */
+body { margin: 0; padding: 0; font-size: 14px; }
+.container { max-width: 1200px; margin: 0 auto; }
+.button { background: #007cba; color: white; padding: 10px 20px; }
+.card { border: 1px solid #ddd; border-radius: 4px; padding: 15px; }
+---
+// JavaScript Code
+function processData(data) {
+    if (data && data.length > 0) {
+        return data.map(item => ({ ...item, processed: true }));
+    }
+    return [];
+}
+
+const config = {
+    apiUrl: 'https://api.example.com',
+    timeout: 5000,
+    retries: 3
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Page loaded');
+});
+---
+# Markdown Documentation
+
+This is a **markdown** document with various formatting.
+
+## Features
+
+- Lists and bullets
+- *Italic* and **bold** text
+- `Code snippets`
+
+### Code Example
+
+```javascript
+console.log('Hello, world!');
+```
+
+Common patterns and repeated structures appear throughout.
