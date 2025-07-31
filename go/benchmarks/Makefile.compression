@@ -1,0 +1,98 @@
+# Makefile for Go Compression Benchmark
+
+.PHONY: all build test run clean help
+
+# Default target
+all: build
+
+# Build the compression benchmark
+build:
+	@echo "🔨 Building compression benchmark..."
+	go build -o compression_benchmark compression_benchmark.go
+	@echo "✅ Build completed successfully"
+
+# Run tests
+test:
+	@echo "🧪 Running tests..."
+	go test -v compression_benchmark_test.go compression_benchmark.go
+	@echo "✅ Tests completed"
+
+# Run the benchmark (requires Redis/Valkey server)
+run: build
+	@echo "🚀 Running compression benchmark..."
+	@if ! nc -z localhost 6379 2>/dev/null; then \
+		echo "❌ Error: Redis/Valkey server not running on localhost:6379"; \
+		echo "Please start a Redis/Valkey server first"; \
+		exit 1; \
+	fi
+	./compression_benchmark
+	@echo "🎉 Benchmark completed!"
+
+# Run using the shell script
+run-script:
+	@echo "🚀 Running compression benchmark via shell script..."
+	./run_compression_benchmark.sh
+
+# Clean build artifacts
+clean:
+	@echo "🧹 Cleaning build artifacts..."
+	rm -f compression_benchmark
+	@echo "✅ Clean completed"
+
+# Check dependencies
+deps:
+	@echo "📦 Checking dependencies..."
+	go mod tidy
+	go mod verify
+	@echo "✅ Dependencies verified"
+
+# Format code
+fmt:
+	@echo "🎨 Formatting code..."
+	go fmt ./...
+	@echo "✅ Code formatted"
+
+# Lint code (requires golangci-lint)
+lint:
+	@echo "🔍 Linting code..."
+	@if command -v golangci-lint >/dev/null 2>&1; then \
+		golangci-lint run; \
+	else \
+		echo "⚠️ golangci-lint not found, skipping lint"; \
+	fi
+
+# Check if Redis/Valkey is running
+check-redis:
+	@echo "🔍 Checking Redis/Valkey server..."
+	@if nc -z localhost 6379 2>/dev/null; then \
+		echo "✅ Redis/Valkey server is running on localhost:6379"; \
+	else \
+		echo "❌ Redis/Valkey server is not running on localhost:6379"; \
+		echo "Please start a Redis/Valkey server:"; \
+		echo "  redis-server"; \
+		echo "  # or"; \
+		echo "  valkey-server"; \
+		exit 1; \
+	fi
+
+# Show help
+help:
+	@echo "Go Compression Benchmark Makefile"
+	@echo ""
+	@echo "Available targets:"
+	@echo "  build        - Build the compression benchmark binary"
+	@echo "  test         - Run unit tests"
+	@echo "  run          - Build and run the benchmark (requires Redis/Valkey)"
+	@echo "  run-script   - Run the benchmark using the shell script"
+	@echo "  clean        - Remove build artifacts"
+	@echo "  deps         - Check and verify dependencies"
+	@echo "  fmt          - Format Go code"
+	@echo "  lint         - Lint Go code (requires golangci-lint)"
+	@echo "  check-redis  - Check if Redis/Valkey server is running"
+	@echo "  help         - Show this help message"
+	@echo ""
+	@echo "Examples:"
+	@echo "  make build"
+	@echo "  make test"
+	@echo "  make run"
+	@echo "  make clean"
