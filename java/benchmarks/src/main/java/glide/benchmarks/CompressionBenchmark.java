@@ -190,7 +190,7 @@ public class CompressionBenchmark {
             "Dataset", "Entries", "Original", "Redis Mem", "Ratio", "TPS", "Savings");
         System.out.println("-".repeat(80));
         
-        CompressionConfiguration config = createCompressionConfig(CompressionBackend.ZSTD, 3, 64);
+        CompressionConfiguration config = createCompressionConfig(CompressionBackend.ZSTD, 1, 64);
         
         for (Map.Entry<String, List<String>> entry : datasets.entrySet()) {
             String datasetName = entry.getKey();
@@ -218,7 +218,7 @@ public class CompressionBenchmark {
             "Dataset", "Uncompressed", "Compressed", "Perf Impact");
         System.out.println("-".repeat(80));
         
-        CompressionConfiguration compressedConfig = createCompressionConfig(CompressionBackend.ZSTD, 3, 64);
+        CompressionConfiguration compressedConfig = createCompressionConfig(CompressionBackend.ZSTD, 1, 64);
         
         for (Map.Entry<String, List<String>> entry : datasets.entrySet()) {
             String datasetName = entry.getKey();
@@ -250,7 +250,7 @@ public class CompressionBenchmark {
             "Dataset", "Entries", "Original", "Uncomp Mem", "Comp Mem", "Mem Saved");
         System.out.println("-".repeat(80));
         
-        CompressionConfiguration compressedConfig = createCompressionConfig(CompressionBackend.ZSTD, 3, 64);
+        CompressionConfiguration compressedConfig = createCompressionConfig(CompressionBackend.ZSTD, 1, 64);
         
         for (Map.Entry<String, List<String>> entry : datasets.entrySet()) {
             String datasetName = entry.getKey();

@@ -1,447 +1,313 @@
-# Copyright Valkey GLIDE Project Contributors - SPDX Identifier: Apache-2.0
+#!/usr/bin/env python3
+"""
+Copyright Valkey GLIDE Project Contributors - SPDX Identifier: Apache-2.0
 
-import argparse
-import functools
+Comprehensive Python benchmark for GLIDE client compression performance.
+
+This benchmark tests:
+1. Various realistic data types (JSON, logs, CSV, XML, etc.)
+2. Different compression levels and their impact on TPS
+3. Memory usage comparison between compressed and uncompressed
+4. Throughput measurements for different data sizes
+5. Compression effectiveness across different data patterns
+"""
+
+import asyncio
 import json
-import math
-import random
+import os
+import statistics
 import time
-from datetime import datetime, timezone
-from enum import Enum
 from pathlib import Path
-from statistics import mean
-from typing import List
+from typing import Dict, List, Optional, Tuple
 
-import anyio
-import numpy as np
-import redis.asyncio as redispy  # type: ignore
 from glide import (
     GlideClient,
     GlideClientConfiguration,
-    GlideClusterClient,
-    GlideClusterClientConfiguration,
-    Logger,
-    LogLevel,
     NodeAddress,
     CompressionConfiguration,
     CompressionBackend,
 )
 
 
-class ChosenAction(Enum):
-    GET_NON_EXISTING = 1
-    GET_EXISTING = 2
-    SET = 3
-
-
-PORT = 6379
-
-arguments_parser = argparse.ArgumentParser()
-arguments_parser.add_argument(
-    "--resultsFile",
-    help="Where to write the results file",
-    required=False,
-    default="../results/python-compression-results.json",
-)
-arguments_parser.add_argument(
-    "--dataSize", help="Size of data to set", required=False, default="1000"
-)
-arguments_parser.add_argument(
-    "--concurrentTasks",
-    help="List of number of concurrent tasks to run",
-    nargs="+",
-    required=False,
-    default=("10", "100"),
-)
-arguments_parser.add_argument(
-    "--host", help="What host to target", required=False, default="localhost"
-)
-arguments_parser.add_argument(
-    "--clientCount",
-    help="Number of clients to run concurrently",
-    nargs="+",
-    required=False,
-    default=("1"),
-)
-arguments_parser.add_argument(
-    "--tls",
-    help="Should benchmark a TLS server",
-    action="store_true",
-    required=False,
-    default=False,
-)
-arguments_parser.add_argument(
-    "--clusterModeEnabled",
-    help="Should benchmark a cluster mode enabled cluster",
-    action="store_true",
-    required=False,
-    default=False,
-)
-arguments_parser.add_argument(
-    "--port",
-    default=PORT,
-    type=int,
-    required=False,
-    help="Which port to connect to, defaults to `%(default)s`",
-)
-arguments_parser.add_argument(
-    "--minimal", help="Should run a minimal benchmark", action="store_true"
-)
-arguments_parser.add_argument(
-    "--backend",
-    help="Async backend to use",
-    required=False,
-    default="asyncio",
-    choices=["asyncio", "trio"],
-)
-arguments_parser.add_argument(
-    "--compressionBackend",
-    help="Compression backend to use",
-    required=False,
-    default="zstd",
-    choices=["zstd", "lz4"],
-)
-arguments_parser.add_argument(
-    "--compressionLevel",
-    help="Compression level (1-22 for ZSTD, 1-12 for LZ4)",
-    type=int,
-    required=False,
-    default=3,
-)
-arguments_parser.add_argument(
-    "--minCompressionSize",
-    help="Minimum size in bytes for compression",
-    type=int,
-    required=False,
-    default=64,
-)
-args = arguments_parser.parse_args()
-
-if args.backend == "trio":
-    raise ValueError("Trio backend is only supported on the 'glide' client")
-
-PROB_GET = 0.8
-PROB_GET_EXISTING_KEY = 0.8
-SIZE_GET_KEYSPACE = 3750000  # 3.75 million
-SIZE_SET_KEYSPACE = 3000000  # 3 million
-started_tasks_counter = 0
-bench_json_results: List[str] = []
-
-
-def truncate_decimal(number: float, digits: int = 3) -> float:
-    stepper = 10**digits
-    return math.floor(number * stepper) / stepper
-
-
-def generate_value(size):
-    # Generate compressible data (repeated patterns)
-    pattern = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. "
-    repetitions = max(1, size // len(pattern))
-    remainder = size % len(pattern)
-    return (pattern * repetitions + pattern[:remainder])[:size]
-
-
-def generate_key_set():
-    return str(random.randint(1, SIZE_SET_KEYSPACE + 1))
-
-
-def generate_key_get():
-    return str(random.randint(SIZE_SET_KEYSPACE, SIZE_GET_KEYSPACE + 1))
-
-
-def choose_action():
-    if random.random() > PROB_GET:
-        return ChosenAction.SET
-    if random.random() > PROB_GET_EXISTING_KEY:
-        return ChosenAction.GET_NON_EXISTING
-    return ChosenAction.GET_EXISTING
-
-
-def calculate_latency(latency_list, percentile):
-    return round(np.percentile(np.array(latency_list), percentile), 4)
-
-
-def process_results():
-    global bench_json_results
-    global args
-
-    # write json results to a file
-    res_file_path = args.resultsFile
-    with open(res_file_path, "w+") as f:
-        json.dump(bench_json_results, f, indent=2)
-
-
-def timer(func):
-    @functools.wraps(func)
-    async def wrapper(*args, **kwargs):
-        tic = time.perf_counter()
-        await func(*args, **kwargs)
-        toc = time.perf_counter()
-        return toc - tic
-
-    return wrapper
-
-
-async def execute_commands(clients, total_commands, data_size, action_latencies):
-    global started_tasks_counter
-    while started_tasks_counter < total_commands:
-        started_tasks_counter += 1
-        chosen_action = choose_action()
-        client = clients[started_tasks_counter % len(clients)]
-        tic = time.perf_counter()
-        if chosen_action == ChosenAction.GET_EXISTING:
-            await client.get(generate_key_set())
-        elif chosen_action == ChosenAction.GET_NON_EXISTING:
-            await client.get(generate_key_get())
-        elif chosen_action == ChosenAction.SET:
-            await client.set(generate_key_set(), generate_value(data_size))
-        toc = time.perf_counter()
-        execution_time_milli = (toc - tic) * 1000
-        action_latencies[chosen_action].append(truncate_decimal(execution_time_milli))
-    return True
-
-
-@timer
-async def create_and_run_concurrent_tasks(
-    clients, total_commands, num_of_concurrent_tasks, data_size, action_latencies
-):
-    global started_tasks_counter
-    started_tasks_counter = 0
-
-    async with anyio.create_task_group() as tg:
-        for _ in range(num_of_concurrent_tasks):
-            tg.start_soon(
-                execute_commands,
-                clients,
-                total_commands,
-                data_size,
-                action_latencies,
+class CompressionBenchmark:
+    def __init__(self, host: str = "localhost", port: int = 6379):
+        self.host = host
+        self.port = port
+        self.warmup_iterations = 100
+        self.benchmark_iterations = 1000
+        self.tps_test_duration_ms = 5000  # 5 seconds
+        
+    def load_test_datasets(self) -> Dict[str, List[str]]:
+        """Load standardized test datasets from files"""
+        print("📊 Loading standardized test datasets...")
+        
+        datasets = {}
+        data_dir = Path(__file__).parent.parent.parent / "java" / "benchmarks" / "data"
+        
+        # Load datasets from standardized files
+        datasets["json_objects"] = self._load_dataset_from_file(data_dir / "json_objects.txt", False)
+        datasets["app_logs"] = self._load_dataset_from_file(data_dir / "app_logs.txt", False)
+        datasets["csv_data"] = self._load_dataset_from_file(data_dir / "csv_data.txt", False)
+        datasets["xml_docs"] = self._load_dataset_from_file(data_dir / "xml_docs.txt", True)  # XML uses --- separator
+        datasets["base64"] = self._load_dataset_from_file(data_dir / "base64_data.txt", False)
+        datasets["repetitive"] = self._load_dataset_from_file(data_dir / "repetitive_text.txt", False)
+        datasets["random"] = self._load_dataset_from_file(data_dir / "random_data.txt", False)
+        datasets["mixed_web"] = self._load_dataset_from_file(data_dir / "mixed_web.txt", True)  # Mixed web uses --- separator
+        
+        # Print dataset info
+        for name, values in datasets.items():
+            total_size = sum(len(value) for value in values)
+            avg_size = total_size // len(values) if values else 0
+            print(f"  {name:<12}: {len(values):3d} entries, {total_size:8,d} total bytes, {avg_size:5,d} avg bytes")
+        
+        print()
+        return datasets
+    
+    def _load_dataset_from_file(self, filename: Path, use_separator: bool) -> List[str]:
+        """Load dataset from a file"""
+        try:
+            with open(filename, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            if use_separator:
+                # Split by --- separator for XML and mixed web content
+                parts = content.split('---')
+                entries = [part.strip() for part in parts if part.strip()]
+            else:
+                # Split by lines for other formats
+                lines = content.split('\n')
+                entries = [line.strip() for line in lines if line.strip()]
+            
+            return entries
+            
+        except Exception as e:
+            print(f"⚠️ Failed to load {filename}: {type(e).__name__} - {e}")
+            print(f"   Using fallback generated data for this dataset")
+            return self._generate_fallback_data(filename.name)
+    
+    def _generate_fallback_data(self, filename: str) -> List[str]:
+        """Generate fallback data if file loading fails"""
+        return [f"Fallback data entry {i} for {filename}" for i in range(10)]
+    
+    async def benchmark_compression_levels(self, datasets: Dict[str, List[str]]):
+        """Benchmark different compression levels"""
+        print("🎚️ Compression Level Benchmark")
+        print("-" * 80)
+        print(f"{'Level':<6} {'Dataset':<12} {'Original':<10} {'Compressed':<10} {'Ratio':<8} {'TPS':<8}")
+        print("-" * 80)
+        
+        levels = [1, 3, 6, 9, 15, 22]
+        test_dataset = datasets["json_objects"]  # Use JSON for level testing
+        
+        for level in levels:
+            result = await self._benchmark_configuration(
+                self._create_compression_config(CompressionBackend.ZSTD, level, 64),
+                "json_objects", test_dataset
             )
-
-
-def latency_results(prefix, latencies):
-    result = {}
-    result[prefix + "_p50_latency"] = calculate_latency(latencies, 50)
-    result[prefix + "_p90_latency"] = calculate_latency(latencies, 90)
-    result[prefix + "_p99_latency"] = calculate_latency(latencies, 99)
-    result[prefix + "_average_latency"] = truncate_decimal(mean(latencies))
-    result[prefix + "_std_dev"] = truncate_decimal(np.std(latencies))
-
-    return result
-
-
-async def create_clients(client_count, action):
-    return [await action() for _ in range(client_count)]
-
-
-async def run_clients(
-    clients,
-    client_name,
-    event_loop_name,
-    total_commands,
-    num_of_concurrent_tasks,
-    data_size,
-    is_cluster,
-    compression_enabled=False,
-    compression_backend=None,
-    compression_level=None,
-    min_compression_size=None,
-):
-    now = datetime.now(timezone.utc).strftime("%H:%M:%S")
-    compression_info = ""
-    if compression_enabled:
-        compression_info = f" compression: {compression_backend} level {compression_level}"
+            
+            original_size = sum(len(data) for data in test_dataset)
+            print(f"{level:<6d} {'json_objects':<12} {original_size:10,d} {result.compressed_size:10,d} {result.compression_ratio:<8.2f} {result.tps:8,.0f}")
+        
+        print()
     
-    print(
-        f"Starting {client_name} data size: {data_size} concurrency:"
-        f"{num_of_concurrent_tasks} client count: {len(clients)}{compression_info} {now}"
-    )
-    action_latencies = {
-        ChosenAction.GET_NON_EXISTING: list(),
-        ChosenAction.GET_EXISTING: list(),
-        ChosenAction.SET: list(),
-    }
-    time = await create_and_run_concurrent_tasks(
-        clients, total_commands, num_of_concurrent_tasks, data_size, action_latencies
-    )
-    tps = int(started_tasks_counter / time)
-    get_non_existing_latencies = action_latencies[ChosenAction.GET_NON_EXISTING]
-    get_non_existing_latency_results = latency_results(
-        "get_non_existing", get_non_existing_latencies
-    )
-
-    get_existing_latencies = action_latencies[ChosenAction.GET_EXISTING]
-    get_existing_latency_results = latency_results(
-        "get_existing", get_existing_latencies
-    )
-
-    set_latencies = action_latencies[ChosenAction.SET]
-    set_results = latency_results("set", set_latencies)
-
-    json_res = {
-        **{
-            "client": client_name,
-            "loop": event_loop_name,
-            "num_of_tasks": num_of_concurrent_tasks,
-            "data_size": data_size,
-            "tps": tps,
-            "client_count": len(clients),
-            "is_cluster": is_cluster,
-            "compression_enabled": compression_enabled,
-            "compression_backend": compression_backend,
-            "compression_level": compression_level,
-            "min_compression_size": min_compression_size,
-        },
-        **get_existing_latency_results,
-        **get_non_existing_latency_results,
-        **set_results,
-    }
-
-    bench_json_results.append(json_res)
-
-
-async def main(
-    event_loop_name,
-    total_commands,
-    num_of_concurrent_tasks,
-    data_size,
-    host,
-    client_count,
-    use_tls,
-    is_cluster,
-    compression_backend,
-    compression_level,
-    min_compression_size,
-):
-    # Test without compression first
-    client_class = GlideClusterClient if is_cluster else GlideClient
-    config = (
-        GlideClusterClientConfiguration(
-            [NodeAddress(host=host, port=port)], use_tls=use_tls
+    async def benchmark_data_types(self, datasets: Dict[str, List[str]]):
+        """Benchmark different data types"""
+        print("📋 Data Type Compression Effectiveness")
+        print("   Measures compression ratio and memory savings for different data types")
+        print("-" * 80)
+        print(f"{'Dataset':<12} {'Entries':<8} {'Original':<10} {'Redis Mem':<10} {'Ratio':<8} {'TPS':<8} {'Savings':<10}")
+        print("-" * 80)
+        
+        config = self._create_compression_config(CompressionBackend.ZSTD, 1, 64)
+        
+        for dataset_name, data in datasets.items():
+            result = await self._benchmark_configuration(config, dataset_name, data)
+            original_size = sum(len(entry) for entry in data)
+            savings = ((original_size - result.compressed_size) / original_size) * 100
+            
+            print(f"{dataset_name:<12} {len(data):8,d} {original_size:10,d} {result.compressed_size:10,d} {result.compression_ratio:<8.2f} {result.tps:8,.0f} {savings:9.1f}%")
+        
+        print()
+    
+    async def benchmark_throughput(self, datasets: Dict[str, List[str]]):
+        """Benchmark throughput with different configurations"""
+        print("⚡ Throughput Benchmark (Operations/Second)")
+        print("   Measures performance impact of compression on SET/GET operations")
+        print("-" * 80)
+        print(f"{'Dataset':<12} {'Uncompressed':<12} {'Compressed':<12} {'Perf Impact':<12}")
+        print("-" * 80)
+        
+        compressed_config = self._create_compression_config(CompressionBackend.ZSTD, 1, 64)
+        
+        for dataset_name, data in datasets.items():
+            # Benchmark uncompressed
+            uncompressed = await self._benchmark_configuration(None, f"{dataset_name}_uncomp", data)
+            
+            # Benchmark compressed
+            compressed = await self._benchmark_configuration(compressed_config, f"{dataset_name}_comp", data)
+            
+            difference = ((compressed.tps - uncompressed.tps) / uncompressed.tps) * 100
+            
+            print(f"{dataset_name:<12} {uncompressed.tps:12,.0f} {compressed.tps:12,.0f} {difference:+11.1f}%")
+        
+        print()
+    
+    async def benchmark_memory_efficiency(self, datasets: Dict[str, List[str]]):
+        """Benchmark memory efficiency"""
+        print("💾 Memory Efficiency Benchmark")
+        print("-" * 80)
+        print(f"{'Dataset':<12} {'Entries':<8} {'Original':<10} {'Uncomp Mem':<10} {'Comp Mem':<10} {'Mem Saved':<10}")
+        print("-" * 80)
+        
+        compressed_config = self._create_compression_config(CompressionBackend.ZSTD, 1, 64)
+        
+        for dataset_name, data in datasets.items():
+            # Test uncompressed memory usage
+            uncompressed_memory = await self._measure_memory_usage(None, f"{dataset_name}_mem_uncomp", data)
+            
+            # Test compressed memory usage
+            compressed_memory = await self._measure_memory_usage(compressed_config, f"{dataset_name}_mem_comp", data)
+            
+            original_size = sum(len(entry) for entry in data)
+            memory_saved = ((uncompressed_memory - compressed_memory) / uncompressed_memory) * 100 if uncompressed_memory > 0 else 0
+            
+            print(f"{dataset_name:<12} {len(data):8,d} {original_size:10,d} {uncompressed_memory:10,d} {compressed_memory:10,d} {memory_saved:9.1f}%")
+        
+        print()
+    
+    async def _benchmark_configuration(self, compression_config: Optional[CompressionConfiguration], 
+                                     key_prefix: str, data_list: List[str]) -> 'BenchmarkResult':
+        """Benchmark a specific configuration"""
+        
+        config_builder = GlideClientConfiguration(
+            addresses=[NodeAddress(host=self.host, port=self.port)]
         )
-        if is_cluster
-        else GlideClientConfiguration(
-            [NodeAddress(host=host, port=port)], use_tls=use_tls
+        
+        if compression_config:
+            config_builder.compression = compression_config
+        
+        client = await GlideClient.create(config_builder)
+        
+        try:
+            # Warmup - use different entries for each warmup iteration
+            for i in range(self.warmup_iterations):
+                data = data_list[i % len(data_list)]
+                await client.set(f"{key_prefix}_warmup_{i}", data)
+            
+            # Measure TPS
+            start_time = time.time()
+            operations = 0
+            
+            while (time.time() - start_time) * 1000 < self.tps_test_duration_ms:
+                data = data_list[operations % len(data_list)]
+                await client.set(f"{key_prefix}_tps_{operations}", data)
+                await client.get(f"{key_prefix}_tps_{operations}")
+                operations += 2  # SET + GET
+            
+            end_time = time.time()
+            tps = operations / (end_time - start_time)
+            
+            # Measure compression across all entries
+            total_compressed_size = 0
+            original_size = 0
+            
+            for i, data in enumerate(data_list):
+                test_key = f"{key_prefix}_size_test_{i}"
+                await client.set(test_key, data)
+                memory_usage = await self._get_memory_usage(test_key, client)
+                total_compressed_size += memory_usage
+                original_size += len(data)
+            
+            # Handle case where memory usage couldn't be measured
+            if total_compressed_size == 0:
+                total_compressed_size = original_size  # Fallback to original size
+            
+            # For uncompressed data, ratio should be 1.0
+            if compression_config is None:
+                compression_ratio = 1.0  # No compression applied
+            else:
+                compression_ratio = original_size / total_compressed_size if total_compressed_size > 0 else 1.0
+            
+            return BenchmarkResult(tps, total_compressed_size, compression_ratio)
+            
+        finally:
+            await client.close()
+    
+    async def _measure_memory_usage(self, compression_config: Optional[CompressionConfiguration], 
+                                   key_prefix: str, data_list: List[str]) -> int:
+        """Measure memory usage for a configuration"""
+        
+        config_builder = GlideClientConfiguration(
+            addresses=[NodeAddress(host=self.host, port=self.port)]
         )
-    )
-    clients = await create_clients(
-        client_count,
-        lambda: client_class.create(config),
-    )
-    await run_clients(
-        clients,
-        "glide-no-compression",
-        event_loop_name,
-        total_commands,
-        num_of_concurrent_tasks,
-        data_size,
-        is_cluster,
-        compression_enabled=False,
-    )
+        
+        if compression_config:
+            config_builder.compression = compression_config
+        
+        client = await GlideClient.create(config_builder)
+        
+        try:
+            total_memory = 0
+            for i, data in enumerate(data_list):
+                key = f"{key_prefix}_{i}"
+                await client.set(key, data)
+                total_memory += await self._get_memory_usage(key, client)
+            return total_memory
+            
+        finally:
+            await client.close()
     
-    # Close clients
-    for client in clients:
-        await client.close()
-
-    # Test with compression
-    backend = CompressionBackend.ZSTD if compression_backend == "zstd" else CompressionBackend.LZ4
-    compression_config = CompressionConfiguration(
-        enabled=True,
-        backend=backend,
-        compression_level=compression_level,
-        min_compression_size=min_compression_size,
-    )
-    
-    config_with_compression = (
-        GlideClusterClientConfiguration(
-            [NodeAddress(host=host, port=port)], 
-            use_tls=use_tls,
-            compression=compression_config
+    def _create_compression_config(self, backend: CompressionBackend, level: int, min_size: int) -> CompressionConfiguration:
+        """Create compression configuration"""
+        return CompressionConfiguration(
+            enabled=True,
+            backend=backend,
+            compression_level=level,
+            min_compression_size=min_size
         )
-        if is_cluster
-        else GlideClientConfiguration(
-            [NodeAddress(host=host, port=port)], 
-            use_tls=use_tls,
-            compression=compression_config
-        )
-    )
     
-    clients_with_compression = await create_clients(
-        client_count,
-        lambda: client_class.create(config_with_compression),
-    )
-    
-    await run_clients(
-        clients_with_compression,
-        "glide-with-compression",
-        event_loop_name,
-        total_commands,
-        num_of_concurrent_tasks,
-        data_size,
-        is_cluster,
-        compression_enabled=True,
-        compression_backend=compression_backend,
-        compression_level=compression_level,
-        min_compression_size=min_compression_size,
-    )
-    
-    # Close clients
-    for client in clients_with_compression:
-        await client.close()
+    async def _get_memory_usage(self, key: str, client: GlideClient) -> int:
+        """Get memory usage for a key"""
+        try:
+            result = await client.custom_command(["MEMORY", "USAGE", key])
+            return int(result) if result is not None else 0
+        except Exception:
+            return 0
 
 
-def number_of_iterations(num_of_concurrent_tasks):
-    return min(max(10000, num_of_concurrent_tasks * 1000), 100000)
+class BenchmarkResult:
+    def __init__(self, tps: float, compressed_size: int, compression_ratio: float):
+        self.tps = tps
+        self.compressed_size = compressed_size
+        self.compression_ratio = compression_ratio
+
+
+async def main():
+    print("🚀 GLIDE Python Compression Benchmark")
+    print("=" * 61)
+    print(f"Warmup iterations: 100")
+    print(f"Benchmark iterations: 1000")
+    print(f"TPS test duration: 5000ms")
+    print()
+    
+    try:
+        benchmark = CompressionBenchmark()
+        
+        # Load standardized test datasets
+        datasets = benchmark.load_test_datasets()
+        
+        # Run comprehensive benchmarks
+        await benchmark.benchmark_compression_levels(datasets)
+        await benchmark.benchmark_data_types(datasets)
+        await benchmark.benchmark_throughput(datasets)
+        await benchmark.benchmark_memory_efficiency(datasets)
+        
+        print("\n🎉 Benchmark completed successfully!")
+        
+    except Exception as e:
+        print(f"\n❌ Error during benchmark: {type(e).__name__}: {e}")
+        raise
 
 
 if __name__ == "__main__":
-    concurrent_tasks = args.concurrentTasks
-    data_size = int(args.dataSize)
-    client_count = args.clientCount
-    host = args.host
-    use_tls = args.tls
-    port = args.port
-    is_cluster = args.clusterModeEnabled
-    compression_backend = args.compressionBackend
-    compression_level = args.compressionLevel
-    min_compression_size = args.minCompressionSize
-
-    # Setting the internal logger to log every log that has a level of info and above,
-    # and save the logs to a file with the name of the results file.
-    Logger.set_logger_config(LogLevel.INFO, Path(args.resultsFile).stem)
-
-    product_of_arguments = [
-        (data_size, int(num_of_concurrent_tasks), int(number_of_clients))
-        for num_of_concurrent_tasks in concurrent_tasks
-        for number_of_clients in client_count
-        if int(number_of_clients) <= int(num_of_concurrent_tasks)
-    ]
-
-    for data_size, num_of_concurrent_tasks, number_of_clients in product_of_arguments:
-        iterations = (
-            1000 if args.minimal else number_of_iterations(num_of_concurrent_tasks)
-        )
-        anyio.run(
-            main,
-            args.backend,
-            iterations,
-            num_of_concurrent_tasks,
-            data_size,
-            host,
-            number_of_clients,
-            use_tls,
-            is_cluster,
-            compression_backend,
-            compression_level,
-            min_compression_size,
-            backend=args.backend,
-        )
-
-    process_results()
-    
-    print(f"\nBenchmark completed! Results saved to: {args.resultsFile}")
-    print("\nSummary:")
-    for result in bench_json_results:
-        compression_status = "with compression" if result["compression_enabled"] else "without compression"
-        print(f"  {result['client']} ({compression_status}): {result['tps']} TPS, "
-              f"avg latency: {result['set_average_latency']:.2f}ms")
+    asyncio.run(main())
