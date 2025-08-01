@@ -10,7 +10,7 @@ import sys
 import os
 
 # Add the python directory to the path to import glide
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'python'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'python', 'python'))
 
 try:
     from glide import (
@@ -60,13 +60,14 @@ async def test_basic_set_get_compression():
         retrieved_value = await client.get(test_key)
         print("✅ GET operation completed successfully")
         
-        # Verify data integrity
-        if retrieved_value == test_value:
+        # Verify data integrity (handle bytes vs string)
+        retrieved_str = retrieved_value.decode('utf-8') if isinstance(retrieved_value, bytes) else retrieved_value
+        if retrieved_str == test_value:
             print("✅ Data integrity verified - compression/decompression working correctly")
         else:
             print("❌ Data integrity check failed")
             print(f"Expected: {test_value[:50]}...")
-            print(f"Got: {retrieved_value[:50] if retrieved_value else 'None'}...")
+            print(f"Got: {retrieved_str[:50] if retrieved_str else 'None'}...")
             return False
         
         # Test with small data (should not be compressed)
@@ -76,7 +77,8 @@ async def test_basic_set_get_compression():
         await client.set(small_key, small_value)
         retrieved_small = await client.get(small_key)
         
-        if retrieved_small == small_value:
+        retrieved_small_str = retrieved_small.decode('utf-8') if isinstance(retrieved_small, bytes) else retrieved_small
+        if retrieved_small_str == small_value:
             print("✅ Small data handling verified (no compression)")
         else:
             print("❌ Small data handling failed")
@@ -132,10 +134,13 @@ async def test_unsupported_commands():
         
         # Values should match (since no compression was applied)
         for i, key in enumerate(keys):
-            if retrieved_values[i] == test_data[key]:
+            retrieved_str = retrieved_values[i].decode('utf-8') if isinstance(retrieved_values[i], bytes) else retrieved_values[i]
+            if retrieved_str == test_data[key]:
                 print(f"✅ {key} value matches (no compression/decompression)")
             else:
                 print(f"❌ {key} value mismatch")
+                print(f"Expected: {test_data[key][:50]}...")
+                print(f"Got: {retrieved_str[:50] if retrieved_str else 'None'}...")
                 return False
         
         # Clean up

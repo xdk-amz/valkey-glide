@@ -50,14 +50,9 @@ mod tests {
         // Test that we can classify commands correctly for batch operations
         use crate::compression::{get_command_compression_behavior, CommandCompressionBehavior};
         
-        // Test command types that should be compressed in batches
+        // Test command types in simplified version - only SET should compress
         let compress_commands = vec![
             crate::request_type::RequestType::Set,
-            crate::request_type::RequestType::MSet,
-            crate::request_type::RequestType::HSet,
-            crate::request_type::RequestType::LPush,
-            crate::request_type::RequestType::SAdd,
-            crate::request_type::RequestType::ZAdd,
         ];
         
         for cmd_type in compress_commands {
@@ -65,9 +60,23 @@ mod tests {
             assert_eq!(behavior, CommandCompressionBehavior::CompressValues);
         }
         
-        // Test command types that should be decompressed in batch responses
+        // Test command types in simplified version - only GET should decompress
         let decompress_commands = vec![
             crate::request_type::RequestType::Get,
+        ];
+        
+        for cmd_type in decompress_commands {
+            let behavior = get_command_compression_behavior(cmd_type);
+            assert_eq!(behavior, CommandCompressionBehavior::DecompressValues);
+        }
+        
+        // Test that other commands return NoCompression in simplified version
+        let no_compression_commands = vec![
+            crate::request_type::RequestType::MSet,
+            crate::request_type::RequestType::HSet,
+            crate::request_type::RequestType::LPush,
+            crate::request_type::RequestType::SAdd,
+            crate::request_type::RequestType::ZAdd,
             crate::request_type::RequestType::MGet,
             crate::request_type::RequestType::HGet,
             crate::request_type::RequestType::LPop,
@@ -75,9 +84,9 @@ mod tests {
             crate::request_type::RequestType::ZRange,
         ];
         
-        for cmd_type in decompress_commands {
+        for cmd_type in no_compression_commands {
             let behavior = get_command_compression_behavior(cmd_type);
-            assert_eq!(behavior, CommandCompressionBehavior::DecompressValues);
+            assert_eq!(behavior, CommandCompressionBehavior::NoCompression);
         }
     }
 }

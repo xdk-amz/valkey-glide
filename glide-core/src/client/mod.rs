@@ -67,82 +67,17 @@ pub const DEFAULT_MAX_INFLIGHT_REQUESTS: u32 = 1000;
 pub const CONNECTION_CHECKS_INTERVAL: Duration = Duration::from_secs(3);
 
 /// Extract RequestType from a Redis command for decompression processing
+/// SIMPLIFIED VERSION: Only supports basic SET/GET commands for compression.
 fn extract_request_type_from_cmd(cmd: &Cmd) -> Option<RequestType> {
     // Get the command name (first argument)
     let command_name = cmd.command()?;
     let command_str = String::from_utf8_lossy(&command_name).to_uppercase();
     
-    // Map command names to RequestType
+    // Map command names to RequestType - only basic SET/GET supported
     match command_str.as_str() {
         "GET" => Some(RequestType::Get),
-        "GETEX" => Some(RequestType::GetEx),
-        "GETDEL" => Some(RequestType::GetDel),
-        "GETRANGE" => Some(RequestType::GetRange),
-        "GETSET" => Some(RequestType::GetSet),
-        "MGET" => Some(RequestType::MGet),
-        "SUBSTR" => Some(RequestType::Substr),
         "SET" => Some(RequestType::Set),
-        "SETEX" => Some(RequestType::SetEx),
-        "SETNX" => Some(RequestType::SetNX),
-        "SETRANGE" => Some(RequestType::SetRange),
-        "MSET" => Some(RequestType::MSet),
-        "MSETNX" => Some(RequestType::MSetNX),
-        "APPEND" => Some(RequestType::Append),
-        "HGET" => Some(RequestType::HGet),
-        "HGETALL" => Some(RequestType::HGetAll),
-        "HMGET" => Some(RequestType::HMGet),
-        "HVALS" => Some(RequestType::HVals),
-        "HSET" => Some(RequestType::HSet),
-        "HMSET" => Some(RequestType::HMSet),
-        "LPOP" => Some(RequestType::LPop),
-        "RPOP" => Some(RequestType::RPop),
-        "LPUSH" => Some(RequestType::LPush),
-        "RPUSH" => Some(RequestType::RPush),
-        "LRANGE" => Some(RequestType::LRange),
-        "LINDEX" => Some(RequestType::LIndex),
-        "LSET" => Some(RequestType::LSet),
-        "BLPOP" => Some(RequestType::BLPop),
-        "BRPOP" => Some(RequestType::BRPop),
-        "LMOVE" => Some(RequestType::LMove),
-        "BLMOVE" => Some(RequestType::BLMove),
-        "LMPOP" => Some(RequestType::LMPop),
-        "RPOPLPUSH" => Some(RequestType::RPopLPush),
-        "BRPOPLPUSH" => Some(RequestType::BRPopLPush),
-        "SADD" => Some(RequestType::SAdd),
-        "SMEMBERS" => Some(RequestType::SMembers),
-        "SPOP" => Some(RequestType::SPop),
-        "SRANDMEMBER" => Some(RequestType::SRandMember),
-        "SDIFF" => Some(RequestType::SDiff),
-        "SINTER" => Some(RequestType::SInter),
-        "SUNION" => Some(RequestType::SUnion),
-        "ZADD" => Some(RequestType::ZAdd),
-        "ZRANGE" => Some(RequestType::ZRange),
-        "ZREVRANGE" => Some(RequestType::ZRevRange),
-        "ZRANGEBYSCORE" => Some(RequestType::ZRangeByScore),
-        "ZREVRANGEBYSCORE" => Some(RequestType::ZRevRangeByScore),
-        "ZRANGEBYLEX" => Some(RequestType::ZRangeByLex),
-        "ZREVRANGEBYLEX" => Some(RequestType::ZRevRangeByLex),
-        "ZRANDMEMBER" => Some(RequestType::ZRandMember),
-        "ZPOPMIN" => Some(RequestType::ZPopMin),
-        "ZPOPMAX" => Some(RequestType::ZPopMax),
-        "BZPOPMIN" => Some(RequestType::BZPopMin),
-        "BZPOPMAX" => Some(RequestType::BZPopMax),
-        "ZMPOP" => Some(RequestType::ZMPop),
-        "BZMPOP" => Some(RequestType::BZMPop),
-        "ZDIFF" => Some(RequestType::ZDiff),
-        "ZINTER" => Some(RequestType::ZInter),
-        "ZUNION" => Some(RequestType::ZUnion),
-        "XADD" => Some(RequestType::XAdd),
-        "XREAD" => Some(RequestType::XRead),
-        "XREADGROUP" => Some(RequestType::XReadGroup),
-        "XRANGE" => Some(RequestType::XRange),
-        "XREVRANGE" => Some(RequestType::XRevRange),
-        "JSON.GET" => Some(RequestType::JsonGet),
-        "JSON.MGET" => Some(RequestType::JsonMGet),
-        "JSON.SET" => Some(RequestType::JsonSet),
-        "JSON.STRAPPEND" => Some(RequestType::JsonStrAppend),
-        "PFADD" => Some(RequestType::PfAdd),
-        "GEOADD" => Some(RequestType::GeoAdd),
+
         _ => None, // Unknown command, no compression/decompression needed
     }
 }
@@ -1489,14 +1424,9 @@ mod compression_integration_tests {
         assert!(manager.is_enabled());
         assert_eq!(manager.backend_name(), "zstd");
         
-        // Test command types that should be compressed in batches
+        // Test command types in simplified version - only SET should compress
         let compress_commands = vec![
             RequestType::Set,
-            RequestType::MSet,
-            RequestType::HSet,
-            RequestType::LPush,
-            RequestType::SAdd,
-            RequestType::ZAdd,
         ];
         
         for cmd_type in compress_commands {
@@ -1504,9 +1434,23 @@ mod compression_integration_tests {
             assert_eq!(behavior, crate::compression::CommandCompressionBehavior::CompressValues);
         }
         
-        // Test command types that should be decompressed in batch responses
+        // Test command types in simplified version - only GET should decompress
         let decompress_commands = vec![
             RequestType::Get,
+        ];
+        
+        for cmd_type in decompress_commands {
+            let behavior = crate::compression::get_command_compression_behavior(cmd_type);
+            assert_eq!(behavior, crate::compression::CommandCompressionBehavior::DecompressValues);
+        }
+        
+        // Test that other commands return NoCompression in simplified version
+        let no_compression_commands = vec![
+            RequestType::MSet,
+            RequestType::HSet,
+            RequestType::LPush,
+            RequestType::SAdd,
+            RequestType::ZAdd,
             RequestType::MGet,
             RequestType::HGet,
             RequestType::LPop,
@@ -1514,9 +1458,9 @@ mod compression_integration_tests {
             RequestType::ZRange,
         ];
         
-        for cmd_type in decompress_commands {
+        for cmd_type in no_compression_commands {
             let behavior = crate::compression::get_command_compression_behavior(cmd_type);
-            assert_eq!(behavior, crate::compression::CommandCompressionBehavior::DecompressValues);
+            assert_eq!(behavior, crate::compression::CommandCompressionBehavior::NoCompression);
         }
     }
 

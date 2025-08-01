@@ -9,6 +9,8 @@ use std::time::Duration;
 #[cfg(feature = "proto")]
 use crate::connection_request as protobuf;
 use crate::compression::{CompressionConfig, CompressionBackendType};
+#[cfg(feature = "proto")]
+use ::protobuf::EnumOrUnknown;
 
 #[derive(Default, Clone, Debug)]
 pub struct ConnectionRequest {
@@ -366,7 +368,7 @@ mod tests {
             let mut compression_config = protobuf::CompressionConfig::new();
             compression_config.enabled = true;
             // Set an invalid backend value that will cause enum_value() to fail
-            compression_config.backend = protobuf::EnumOrUnknown::from_i32(999);
+            compression_config.backend = EnumOrUnknown::from_i32(999);
             compression_config.min_compression_size = 64;
 
             proto_request.compression_config = ::protobuf::MessageField::some(compression_config);
