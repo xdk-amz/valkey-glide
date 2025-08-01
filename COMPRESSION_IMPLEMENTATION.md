@@ -132,14 +132,10 @@ Client Response ← Decompression (if needed) ← Response Processing ← Server
 ```
 
 ### Command Support
-The implementation supports compression/decompression for all appropriate Redis commands:
-- **String commands**: GET, SET, MGET, MSET, etc.
-- **Hash commands**: HGET, HSET, HGETALL, etc.
-- **List commands**: LPOP, RPOP, LRANGE, etc.
-- **Set commands**: SMEMBERS, SPOP, etc.
-- **Sorted Set commands**: ZRANGE, ZPOP, etc.
-- **Stream commands**: XREAD, XRANGE, etc.
-- **JSON commands**: JSON.GET, JSON.SET, etc.
+The implementation supports compression/decompression for basic Redis commands only:
+- **String commands**: GET, SET (basic operations only)
+
+**Note**: All other commands (MGET, MSET, Hash commands, List commands, Set commands, Sorted Set commands, Stream commands, JSON commands, etc.) are no longer supported for compression to simplify the implementation.
 
 ## Status
 
