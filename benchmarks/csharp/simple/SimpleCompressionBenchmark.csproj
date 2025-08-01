@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <LangVersion>preview</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <Configurations>Debug;Release;Lint</Configurations>
+    <RootNamespace>Valkey.Glide.SimpleCompressionBenchmark</RootNamespace>
+    <StartupObject>Valkey.Glide.SimpleCompressionBenchmark.SimpleCompressionBenchmark</StartupObject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="StackExchange.Redis" Version="2.8.47" />
+  </ItemGroup>
+
+  <!-- Workaround for https://github.com/dotnet/roslyn/issues/41640 -->
+  <PropertyGroup>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591;CS1573;CS1587</NoWarn>
+  </PropertyGroup>
+
+</Project>

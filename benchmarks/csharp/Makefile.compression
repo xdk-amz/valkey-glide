@@ -1,0 +1,96 @@
+# Makefile for C# Compression Benchmark
+
+.PHONY: help build run clean restore test compression-benchmark
+
+# Default target
+help:
+	@echo "🚀 C# Compression Benchmark Makefile"
+	@echo "Available targets:"
+	@echo "  build                 - Build the compression benchmark"
+	@echo "  run                   - Run the compression benchmark"
+	@echo "  clean                 - Clean build artifacts"
+	@echo "  restore               - Restore .NET dependencies"
+	@echo "  test                  - Run a quick test"
+	@echo "  compression-benchmark - Build and run the full benchmark"
+	@echo "  help                  - Show this help message"
+
+# Project settings
+PROJECT_FILE = CompressionBenchmark.csproj
+CONFIGURATION = Release
+
+# Check if Redis/Valkey is running
+check-redis:
+	@echo "🔍 Checking Redis/Valkey server..."
+	@if ! nc -z localhost 6379 2>/dev/null; then \
+		echo "❌ Error: Redis/Valkey server not running on localhost:6379"; \
+		echo "Please start a Redis/Valkey server first:"; \
+		echo "  redis-server"; \
+		echo "  # or"; \
+		echo "  valkey-server"; \
+		exit 1; \
+	fi
+	@echo "✅ Redis/Valkey server is running"
+
+# Check if .NET is available
+check-dotnet:
+	@echo "🔍 Checking .NET SDK..."
+	@if ! command -v dotnet >/dev/null 2>&1; then \
+		echo "❌ Error: .NET SDK not found"; \
+		echo "Please install .NET SDK from https://dotnet.microsoft.com/download"; \
+		exit 1; \
+	fi
+	@echo "✅ .NET SDK is available"
+	@dotnet --version
+
+# Restore dependencies
+restore: check-dotnet
+	@echo "📦 Restoring .NET dependencies..."
+	dotnet restore $(PROJECT_FILE)
+
+# Build the project
+build: restore
+	@echo "🔨 Building compression benchmark..."
+	dotnet build $(PROJECT_FILE) -c $(CONFIGURATION) --no-restore
+
+# Clean build artifacts
+clean:
+	@echo "🧹 Cleaning build artifacts..."
+	dotnet clean $(PROJECT_FILE)
+	@rm -rf bin/ obj/
+
+# Run the benchmark
+run: check-redis build
+	@echo "🚀 Running compression benchmark..."
+	dotnet run --project $(PROJECT_FILE) -c $(CONFIGURATION) --no-build
+
+# Run a quick test (shorter duration)
+test: check-redis build
+	@echo "🧪 Running quick test..."
+	@echo "Note: This runs the full benchmark. For a true quick test, modify the source code."
+	dotnet run --project $(PROJECT_FILE) -c $(CONFIGURATION) --no-build
+
+# Full compression benchmark (main target)
+compression-benchmark: check-redis check-dotnet restore build run
+	@echo "🎉 Compression benchmark completed!"
+
+# Development targets
+dev-build:
+	@echo "🔨 Building in Debug mode..."
+	dotnet build $(PROJECT_FILE) -c Debug
+
+dev-run: check-redis dev-build
+	@echo "🚀 Running in Debug mode..."
+	dotnet run --project $(PROJECT_FILE) -c Debug --no-build
+
+# Show project info
+info:
+	@echo "📋 Project Information:"
+	@echo "  Project File: $(PROJECT_FILE)"
+	@echo "  Configuration: $(CONFIGURATION)"
+	@echo "  Target Frameworks: net6.0, net8.0"
+	@echo "  Dependencies: Valkey.Glide, System.Text.Json"
+
+# Verify installation
+verify: check-dotnet check-redis
+	@echo "✅ All prerequisites are met!"
+	@echo "Ready to run C# compression benchmark."

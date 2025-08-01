@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net8.0;net6.0</TargetFrameworks>
+    <LangVersion>preview</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <Configurations>Debug;Release;Lint</Configurations>
+    <RootNamespace>Valkey.Glide.CompressionBenchmark</RootNamespace>
+    <StartupObject>Valkey.Glide.CompressionBenchmark.CompressionBenchmark</StartupObject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="$(MSBuildThisFileDirectory)../../csharp/sources/Valkey.Glide/Valkey.Glide.csproj" />
+  </ItemGroup>
+
+  <!-- System.Text.Json is built into .NET 6.0+ -->
+
+  <!-- Workaround for https://github.com/dotnet/roslyn/issues/41640 -->
+  <PropertyGroup>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591;CS1573;CS1587</NoWarn>
+  </PropertyGroup>
+
+</Project>
