@@ -290,6 +290,14 @@ def skip_if_version_below(request):
                 )
         finally:
             client.close()
+        try:
+            if sync_check_if_server_version_lt(client, min_version):
+                pytest.skip(
+                    reason=f"This feature added in version {min_version}",
+                    allow_module_level=True,
+                )
+        finally:
+            client.close()
 
 
 @pytest.fixture

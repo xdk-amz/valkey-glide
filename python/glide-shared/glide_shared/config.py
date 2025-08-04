@@ -18,8 +18,8 @@ from glide_shared.protobuf.connection_request_pb2 import ReadFrom as ProtobufRea
 from glide_shared.protobuf.connection_request_pb2 import (
     TlsMode,
 )
-from glide.protobuf.connection_request_pb2 import CompressionBackend as ProtobufCompressionBackend
-from glide.protobuf.connection_request_pb2 import CompressionConfig as ProtobufCompressionConfig
+from glide_shared.protobuf.connection_request_pb2 import CompressionBackend as ProtobufCompressionBackend
+from glide_shared.protobuf.connection_request_pb2 import CompressionConfig as ProtobufCompressionConfig
 
 
 class NodeAddress:
