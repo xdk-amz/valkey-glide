@@ -4,9 +4,14 @@
 import asyncio
 import json
 import time
+import sys
+import os
 from pathlib import Path
 from statistics import mean
 from typing import List, Dict, Any
+
+# Add the python directory to the path to import glide
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'python', 'python'))
 
 from glide import (
     GlideClient,
@@ -172,7 +177,9 @@ async def main():
     print()
     
     # Save results
-    results_file = "benchmarks/results/comprehensive_compression_results.json"
+    results_dir = Path(__file__).parent / "results"
+    results_dir.mkdir(exist_ok=True)
+    results_file = results_dir / "comprehensive_compression_results.json"
     with open(results_file, "w") as f:
         json.dump(results, f, indent=2)
     

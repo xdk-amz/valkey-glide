@@ -10,6 +10,12 @@ synchronously in an interactive session.
 """
 
 import asyncio
+import sys
+import os
+
+# Add the python directory to the path to import glide
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'python', 'python'))
+
 try:
     import redis
     REDIS_AVAILABLE = True

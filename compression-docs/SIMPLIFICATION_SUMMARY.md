@@ -50,22 +50,6 @@ This document summarizes the changes made to simplify the Valkey GLIDE compressi
 - `decompress_xread_response()`
 - `decompress_xrange_response()`
 
-### 2. Documentation Updates
-
-**`COMPRESSION_IMPLEMENTATION.md`**
-- Updated command support section to reflect only SET/GET support
-- Added note about removed command support
-
-**`COMPRESSION_SIMPLIFICATION_SUMMARY.md`** (this file)
-- Created comprehensive summary of changes
-
-### 3. Test Files
-
-**`simple_set_get_compression_test.py`**
-- Created focused test for basic SET/GET compression functionality
-- Includes test for unsupported commands (verifying they work but without compression)
-- Verifies data integrity and proper compression/decompression behavior
-
 ## Command Support Matrix
 
 | Command Category | Before | After | Notes |
@@ -113,23 +97,16 @@ For applications currently using compression with other commands:
 3. **Storage impact**: Existing compressed data will be properly decompressed when accessed via GET
 4. **Future planning**: Consider using SET/GET for data that benefits most from compression
 
-## Files Modified
-
-1. `glide-core/src/compression.rs` - Core compression logic simplification
-2. `COMPRESSION_IMPLEMENTATION.md` - Documentation update
-3. `COMPRESSION_SIMPLIFICATION_SUMMARY.md` - This summary document
-4. `simple_set_get_compression_test.py` - New focused test file
-
 ## Verification
 
 To verify the changes work correctly:
 
 ```bash
 # Run the simplified compression test
-python3 simple_set_get_compression_test.py
+python3 basic_compression_test.py
 
 # Run existing compression tests (should still pass for SET/GET)
-python3 simple_compression_test.py
+python3 redis_compression_test.py
 ```
 
 The compression library now provides a clean, focused implementation supporting the most common use case (basic key-value operations) while maintaining all the robustness and performance benefits of the original compression infrastructure.

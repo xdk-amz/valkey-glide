@@ -4,9 +4,9 @@ echo "🎮 Starting Interactive Compression Session"
 echo "=" $(printf '=%.0s' {1..40})
 
 # Check if virtual environment exists
-if [ ! -d "python/.env" ]; then
+if [ ! -d "../python/.env" ]; then
     echo "❌ Python virtual environment not found"
-    echo "Please run ./setup_python_env.sh first"
+    echo "Please run ./setup_environment.sh first"
     exit 1
 fi
 
@@ -24,9 +24,9 @@ echo "✅ Redis/Valkey server is running"
 
 # Activate virtual environment and run
 echo "🔌 Activating Python environment..."
-cd python
+cd ../python
 source .env/bin/activate
-cd ..
+cd ../compression-docs
 
 echo "🚀 Starting interactive session..."
-python3 interactive_compression_session.py
+python3 interactive_session.py

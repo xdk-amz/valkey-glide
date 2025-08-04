@@ -150,7 +150,3 @@ The compression feature is **production-ready** with:
 1. `glide-core/src/client/mod.rs` - Added decompression integration
 2. `python/Cargo.toml` - Enabled compression feature
 3. `python/python/glide/__init__.py` - Added compression exports
-
-## Benchmarks Available
-- `benchmarks/python/compression_benchmark.py` - Basic compression vs no-compression benchmark
-- `benchmarks/python/comprehensive_compression_benchmark.py` - Detailed analysis of different compression levels

@@ -17,8 +17,12 @@ import json
 import os
 import statistics
 import time
+import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+
+# Add the python directory to the path to import glide
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'python', 'python'))
 
 from glide import (
     GlideClient,
@@ -42,7 +46,7 @@ class CompressionBenchmark:
         print("📊 Loading standardized test datasets...")
         
         datasets = {}
-        data_dir = Path(__file__).parent.parent / "data"
+        data_dir = Path(__file__).parent.parent / "benchmarks" / "data"
         
         # Load datasets from standardized files
         datasets["json_objects"] = self._load_dataset_from_file(data_dir / "json_objects.txt", False)

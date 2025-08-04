@@ -1,17 +1,17 @@
 #!/bin/bash
 
-echo "🚀 Setting up Python Environment for GLIDE"
-echo "=" $(printf '=%.0s' {1..50})
+echo "🚀 Setting up Python Environment for GLIDE Compression Testing"
+echo "=" $(printf '=%.0s' {1..60})
 
 # Check if we're in the right directory
-if [ ! -d "python" ]; then
+if [ ! -d "../python" ]; then
     echo "❌ Error: python directory not found"
-    echo "Please run this script from the valkey-glide root directory"
+    echo "Please run this script from the compression-docs directory"
     exit 1
 fi
 
 # Navigate to python directory
-cd python
+cd ../python
 
 # Check if virtual environment exists
 if [ ! -d ".env" ]; then
@@ -44,10 +44,10 @@ echo ""
 echo "🎉 Setup complete!"
 echo ""
 echo "To use the environment:"
-echo "1. cd python"
+echo "1. cd ../python"
 echo "2. source .env/bin/activate"
-echo "3. cd .."
-echo "4. python3 interactive_compression_session.py"
+echo "3. cd ../compression-docs"
+echo "4. python3 basic_compression_test.py"
 echo ""
 echo "Or run the quick setup:"
-echo "./run_interactive_session.sh"
+echo "./run_interactive.sh"

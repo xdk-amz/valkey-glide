@@ -15,26 +15,26 @@ Successfully removed all command support except for SET/GET from the Valkey GLID
 ### 2. Tests Run Successfully
 
 #### ✅ Python Tests
-1. **Simple SET/GET Compression Test** (`simple_set_get_compression_test.py`)
+1. **Simple SET/GET Compression Test** (`basic_compression_test.py`)
    - ✅ Basic SET/GET compression functionality verified
    - ✅ Data integrity confirmed (compression/decompression working correctly)
    - ✅ Small data handling verified (no compression for data < 64 bytes)
    - ✅ Other commands work but without compression (MSET/MGET tested)
 
-2. **Python Compression Benchmark** (`benchmarks/python/compression_benchmark.py`)
+2. **Python Compression Benchmark** (`compression_benchmark.py`)
    - ✅ Comprehensive benchmark completed successfully
    - ✅ Tested various data types (JSON, logs, CSV, XML, base64, repetitive, random, mixed web)
    - ✅ Compression level benchmarks (levels 1, 3, 6, 9, 15, 22)
    - ✅ Throughput measurements showing performance impact
    - ✅ Memory efficiency analysis showing significant savings
 
-3. **Interactive Compression Session** (`interactive_compression_session.py`)
+3. **Interactive Compression Session** (`interactive_session.py`)
    - ✅ Interactive testing environment working
    - ✅ GLIDE client with compression enabled
    - ✅ Memory usage measurements functional
 
 #### ✅ Redis-py Test
-- **Simple Compression Test** (`simple_compression_test.py`)
+- **Simple Compression Test** (`redis_compression_test.py`)
   - ✅ Redis-py based testing environment working
   - ✅ Memory usage analysis functional
 
@@ -47,10 +47,6 @@ The Rust tests now correctly validate the simplified compression behavior:
 - Commands like HSET, MSET, ZADD, XADD, etc. now correctly return `NoCompression`
 - Only SET/GET commands support compression as intended
 - All integration tests pass with the new simplified behavior
-
-#### ❌ C# Benchmark
-- Build failed due to Rust library compilation issues
-- This is a separate build system issue, not related to our compression changes
 
 ## Benchmark Results Summary
 
