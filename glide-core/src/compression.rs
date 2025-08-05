@@ -648,6 +648,121 @@ pub mod zstd_backend {
     }
 }
 
+/// LZ4 compression backend implementation
+#[cfg(feature = "compression")]
+pub mod lz4_backend {
+    use super::*;
+    use crate::compression::magic_header;
+
+    /// LZ4 compression backend
+    #[derive(Debug)]
+    pub struct Lz4Backend {
+        /// LZ4 doesn't use compression levels, but we store this for consistency
+        _placeholder: (),
+    }
+
+    impl Lz4Backend {
+        /// Create a new LZ4 backend
+        pub fn new() -> CompressionResult<Self> {
+            Ok(Self {
+                _placeholder: (),
+            })
+        }
+    }
+
+    impl Default for Lz4Backend {
+        fn default() -> Self {
+            Self::new().expect("Default Lz4Backend creation should not fail")
+        }
+    }
+
+    impl CompressionBackend for Lz4Backend {
+        fn compress(&self, data: &[u8], level: Option<i32>) -> CompressionResult<Vec<u8>> {
+            // LZ4 doesn't support compression levels
+            if level.is_some() {
+                return Err(CompressionError::invalid_configuration(
+                    "LZ4 backend does not support compression levels"
+                ));
+            }
+
+            // Compress the data using LZ4 block format
+            // We'll prepend the original size to help with decompression
+            let original_size = data.len() as u32;
+            let size_bytes = original_size.to_le_bytes();
+            
+            let compressed_block = lz4::block::compress(data, None, false)
+                .map_err(|e| CompressionError::compression_failed(
+                    format!("LZ4 compression failed: {}", e)
+                ))?;
+            
+            // Combine size prefix with compressed data
+            let mut compressed_data = Vec::with_capacity(4 + compressed_block.len());
+            compressed_data.extend_from_slice(&size_bytes);
+            compressed_data.extend_from_slice(&compressed_block);
+
+            // Create header with magic bytes and backend ID
+            let header = magic_header::create_header(self.backend_id());
+            
+            // Combine header and compressed data
+            let mut result = Vec::with_capacity(header.len() + compressed_data.len());
+            result.extend_from_slice(&header);
+            result.extend_from_slice(&compressed_data);
+            
+            Ok(result)
+        }
+
+        fn decompress(&self, data: &[u8]) -> CompressionResult<Vec<u8>> {
+            // Check if data has valid header
+            if !self.is_compressed(data) {
+                return Err(CompressionError::decompression_failed(
+                    "Data does not have valid LZ4 compression header"
+                ));
+            }
+
+            // Extract compressed data (skip header)
+            let compressed_data = &data[magic_header::HEADER_SIZE..];
+            
+            // Extract original size from the first 4 bytes
+            if compressed_data.len() < 4 {
+                return Err(CompressionError::decompression_failed(
+                    "LZ4 compressed data too short to contain size prefix"
+                ));
+            }
+            
+            let size_bytes = &compressed_data[0..4];
+            let original_size = u32::from_le_bytes([size_bytes[0], size_bytes[1], size_bytes[2], size_bytes[3]]) as i32;
+            let compressed_block = &compressed_data[4..];
+            
+            // Decompress the data using the original size
+            let decompressed_data = lz4::block::decompress(compressed_block, Some(original_size))
+                .map_err(|e| CompressionError::decompression_failed(
+                    format!("LZ4 decompression failed: {}", e)
+                ))?;
+
+            Ok(decompressed_data)
+        }
+
+        fn is_compressed(&self, data: &[u8]) -> bool {
+            magic_header::has_magic_header(data) 
+                && magic_header::extract_backend_id(data) == Some(self.backend_id())
+        }
+
+        fn backend_name(&self) -> &'static str {
+            "lz4"
+        }
+
+        fn default_level(&self) -> Option<i32> {
+            None // LZ4 doesn't use compression levels
+        }
+
+        fn backend_id(&self) -> u8 {
+            CompressionBackendType::Lz4.backend_id()
+        }
+    }
+
+
+}
+
 /// Process command arguments for compression based on command type
 /// 
 /// This function examines the command type and compresses appropriate arguments
@@ -2069,5 +2184,164 @@ mod tests {
             let value = Value::BulkString(b"test_value".to_vec());
             let result = process_response_for_decompression(value.clone(), RequestType::Get, None).unwrap();
             assert_eq!(result, value);
+        }
+    }
+    #[cfg(feature = "compression")]
+    mod lz4_backend_tests {
+        use super::*;
+        use crate::compression::lz4_backend::Lz4Backend;
+
+        #[test]
+        fn test_lz4_backend_creation() {
+            let backend = Lz4Backend::new();
+            assert!(backend.is_ok());
+            
+            let backend = backend.unwrap();
+            assert_eq!(backend.backend_name(), "lz4");
+            assert_eq!(backend.backend_id(), 0x02);
+            assert_eq!(backend.default_level(), None);
+        }
+
+        #[test]
+        fn test_lz4_compression_and_decompression() {
+            let backend = Lz4Backend::new().unwrap();
+            let test_data = b"This is test data for LZ4 compression and decompression";
+
+            // Test compression
+            let compressed = backend.compress(test_data, None).unwrap();
+            assert!(compressed.len() > magic_header::HEADER_SIZE);
+            assert!(backend.is_compressed(&compressed));
+
+            // Test decompression
+            let decompressed = backend.decompress(&compressed).unwrap();
+            assert_eq!(decompressed, test_data);
+        }
+
+        #[test]
+        fn test_lz4_compression_with_level_should_fail() {
+            let backend = Lz4Backend::new().unwrap();
+            let test_data = b"Test data";
+
+            // LZ4 doesn't support compression levels
+            let result = backend.compress(test_data, Some(1));
+            assert!(result.is_err());
+            assert!(result.unwrap_err().to_string().contains("does not support compression levels"));
+        }
+
+        #[test]
+        fn test_lz4_compression_empty_data() {
+            let backend = Lz4Backend::new().unwrap();
+            let empty_data = b"";
+
+            let compressed = backend.compress(empty_data, None).unwrap();
+            let decompressed = backend.decompress(&compressed).unwrap();
+            assert_eq!(decompressed, empty_data);
+        }
+
+        #[test]
+        fn test_lz4_compression_large_data() {
+            let backend = Lz4Backend::new().unwrap();
+            let large_data = vec![0xAB; 10000]; // 10KB of repeated data
+
+            let compressed = backend.compress(&large_data, None).unwrap();
+            assert!(compressed.len() < large_data.len()); // Should compress well
+
+            let decompressed = backend.decompress(&compressed).unwrap();
+            assert_eq!(decompressed, large_data);
+        }
+
+        #[test]
+        fn test_lz4_compression_binary_data() {
+            let backend = Lz4Backend::new().unwrap();
+            let binary_data: Vec<u8> = (0..=255).cycle().take(1000).collect();
+
+            let compressed = backend.compress(&binary_data, None).unwrap();
+            let decompressed = backend.decompress(&compressed).unwrap();
+            assert_eq!(decompressed, binary_data);
+        }
+
+        #[test]
+        fn test_lz4_compression_utf8_text() {
+            let backend = Lz4Backend::new().unwrap();
+            let utf8_text = "Hello, 世界! 🌍 This is UTF-8 text with emojis 🚀";
+
+            let compressed = backend.compress(utf8_text.as_bytes(), None).unwrap();
+            let decompressed = backend.decompress(&compressed).unwrap();
+            assert_eq!(decompressed, utf8_text.as_bytes());
+            
+            // Verify we can convert back to string
+            let decompressed_string = String::from_utf8(decompressed).unwrap();
+            assert_eq!(decompressed_string, utf8_text);
+        }
+
+        #[test]
+        fn test_lz4_header_format() {
+            let backend = Lz4Backend::new().unwrap();
+            let test_data = b"Test data for header validation";
+
+            let compressed = backend.compress(test_data, None).unwrap();
+            
+            // Verify header format: [GLID][0x02][compressed_data]
+            assert_eq!(compressed[0..4], [0x47, 0x4C, 0x49, 0x44]); // "GLID"
+            assert_eq!(compressed[4], 0x02); // LZ4 backend ID
+            assert!(compressed.len() > 5); // Should have compressed data after header
+        }
+
+        #[test]
+        fn test_lz4_is_compressed_detection() {
+            let backend = Lz4Backend::new().unwrap();
+            let test_data = b"Test data for compression detection";
+
+            // Test uncompressed data
+            assert!(!backend.is_compressed(test_data));
+
+            // Test compressed data
+            let compressed = backend.compress(test_data, None).unwrap();
+            assert!(backend.is_compressed(&compressed));
+
+            // Test data with wrong header
+            let wrong_header = [0x00, 0x01, 0x02, 0x03, 0x04];
+            assert!(!backend.is_compressed(&wrong_header));
+
+            // Test data with correct magic but wrong backend ID
+            let mut wrong_backend = magic_header::create_header(0x01).to_vec(); // ZSTD ID
+            wrong_backend.extend_from_slice(b"some data");
+            assert!(!backend.is_compressed(&wrong_backend));
+        }
+
+        #[test]
+        fn test_lz4_decompression_invalid_data() {
+            let backend = Lz4Backend::new().unwrap();
+
+            // Test decompression of uncompressed data
+            let uncompressed = b"This is not compressed";
+            assert!(backend.decompress(uncompressed).is_err());
+
+            // Test decompression of data with wrong header
+            let wrong_header = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06];
+            assert!(backend.decompress(&wrong_header).is_err());
+
+            // Test decompression of data with correct header but invalid compressed data
+            let mut invalid_compressed = magic_header::create_header(0x02).to_vec();
+            invalid_compressed.extend_from_slice(b"invalid compressed data");
+            assert!(backend.decompress(&invalid_compressed).is_err());
+        }
+
+        #[test]
+        fn test_lz4_compression_manager_integration() {
+            let backend = Box::new(Lz4Backend::new().unwrap());
+            let config = CompressionConfig::new(CompressionBackendType::Lz4)
+                .with_min_compression_size(10);
+            let manager = CompressionManager::new(backend, config).unwrap();
+
+            let test_data = b"This is test data for compression manager integration";
+            
+            // Test compression
+            let compressed = manager.compress_value(test_data).unwrap();
+            assert!(compressed.len() > magic_header::HEADER_SIZE);
+            
+            // Test decompression
+            let decompressed = manager.decompress_value(&compressed).unwrap();
+            assert_eq!(decompressed, test_data);
         }
     }

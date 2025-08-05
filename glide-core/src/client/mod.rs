@@ -7,6 +7,8 @@ use crate::scripts_container::get_script;
 use crate::compression::{CompressionManager, CompressionConfig, CompressionBackendType};
 #[cfg(feature = "compression")]
 use crate::compression::zstd_backend::ZstdBackend;
+#[cfg(feature = "compression")]
+use crate::compression::lz4_backend::Lz4Backend;
 use futures::FutureExt;
 use logger_core::{log_error, log_info, log_warn};
 use once_cell::sync::OnceCell;
@@ -1187,9 +1189,9 @@ fn create_compression_manager(
                 })?)
             }
             CompressionBackendType::Lz4 => {
-                return Err(ConnectionError::Configuration(
-                    "LZ4 compression backend is not yet implemented".to_string(),
-                ));
+                Box::new(Lz4Backend::new().map_err(|e| {
+                    ConnectionError::Configuration(format!("Failed to create lz4 backend: {}", e))
+                })?)
             }
         };
 

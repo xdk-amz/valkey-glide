@@ -42,13 +42,20 @@ This directory contains all documentation, tests, and benchmarks related to the 
 
 4. Start interactive session:
    ```bash
+   # Default ZSTD backend
    ./run_interactive.sh
+   
+   # Or specify backend explicitly
+   ./run_interactive.sh zstd
+   ./run_interactive.sh lz4
    ```
 
 ## Key Features
 
 - **Transparent compression** for SET/GET operations
-- **ZSTD compression backend** with configurable levels (1-22)
+- **Multiple compression backends**:
+  - **ZSTD** with configurable levels (1-22)
+  - **LZ4** for high-speed compression
 - **Automatic compression threshold** (default: 64 bytes minimum)
 - **Graceful fallback** on compression/decompression errors
 - **Performance optimized** for network-bound workloads

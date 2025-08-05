@@ -7,14 +7,20 @@ Interactive Compression Session
 This script sets up an interactive Python session with a compression-enabled
 GLIDE client wrapper that handles async calls for you, so you can use it
 synchronously in an interactive session.
+
+Usage:
+    python3 interactive_session.py [backend]
+    
+    backend: zstd (default) or lz4
 """
 
 import asyncio
 import sys
 import os
+import argparse
 
 # Add the python directory to the path to import glide
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'python', 'python'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'python'))
 
 try:
     import redis
@@ -112,16 +118,26 @@ class SyncGlideWrapper:
         if not self._loop.is_closed():
             self._loop.close()
 
-def setup_session():
+def setup_session(backend="zstd"):
     """Set up the interactive session with sync wrapper"""
     print("🚀 Setting up Interactive Compression Session")
     print("=" * 50)
     
+    # Parse backend argument
+    if backend.lower() == "lz4":
+        compression_backend = CompressionBackend.LZ4
+        compression_level = None  # LZ4 doesn't use compression levels
+        backend_name = "LZ4"
+    else:
+        compression_backend = CompressionBackend.ZSTD
+        compression_level = 3
+        backend_name = "ZSTD"
+    
     # Create compression configuration
     compression_config = CompressionConfiguration(
         enabled=True,
-        backend=CompressionBackend.ZSTD,
-        compression_level=3,
+        backend=compression_backend,
+        compression_level=compression_level,
         min_compression_size=64
     )
     
@@ -145,15 +161,19 @@ def setup_session():
     print("✅ Compression-enabled GLIDE client created!")
     print()
     print("📋 Available objects:")
-    print("   • client - Sync GLIDE wrapper with ZSTD compression (level 3, min 64 bytes)")
+    level_info = f" (level {compression_level})" if compression_level is not None else ""
+    print(f"   • client - Sync GLIDE wrapper with {backend_name} compression{level_info}, min 64 bytes)")
     if REDIS_AVAILABLE:
         print("   • redis_client - Direct Redis client for MEMORY USAGE commands")
     else:
         print("   • client.memory_usage(key) - Memory usage via GLIDE (limited functionality)")
     print()
     print("🔧 Compression Configuration:")
-    print("   • Backend: ZSTD")
-    print("   • Level: 3")
+    print(f"   • Backend: {backend_name}")
+    if compression_level is not None:
+        print(f"   • Level: {compression_level}")
+    else:
+        print("   • Level: N/A (LZ4 uses fixed compression)")
     print("   • Min compression size: 64 bytes")
     print("   • Data <64 bytes will NOT be compressed")
     print()
@@ -236,7 +256,7 @@ def compare_compression(data, key_base="compare"):
     return compressed_memory, uncompressed_memory, ratio
 
 def create_client_with_level(level):
-    """Create a new client with a specific compression level"""
+    """Create a new client with a specific compression level (ZSTD only)"""
     compression_config = CompressionConfiguration(
         enabled=True,
         backend=CompressionBackend.ZSTD,
@@ -254,9 +274,44 @@ def create_client_with_level(level):
     async_client = loop.run_until_complete(GlideClient.create(config))
     return SyncGlideWrapper(async_client, loop)
 
+def create_client_with_backend(backend_name):
+    """Create a new client with a specific backend"""
+    if backend_name.lower() == "lz4":
+        backend = CompressionBackend.LZ4
+        level = None
+    else:
+        backend = CompressionBackend.ZSTD
+        level = 3
+    
+    compression_config = CompressionConfiguration(
+        enabled=True,
+        backend=backend,
+        compression_level=level,
+        min_compression_size=64
+    )
+    
+    config = GlideClientConfiguration(
+        [NodeAddress(host="localhost", port=6379)],
+        compression=compression_config
+    )
+    
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    async_client = loop.run_until_complete(GlideClient.create(config))
+    return SyncGlideWrapper(async_client, loop)
+
+# Parse command line arguments
+def parse_args():
+    parser = argparse.ArgumentParser(description='Interactive Compression Session')
+    parser.add_argument('backend', nargs='?', default='zstd', 
+                       choices=['zstd', 'lz4'],
+                       help='Compression backend to use (default: zstd)')
+    return parser.parse_args()
+
 # Set up the session
 print("Starting interactive session...")
-client, redis_client, loop = setup_session()
+args = parse_args()
+client, redis_client, loop = setup_session(args.backend)
 
 # Start an interactive session
 import code
@@ -268,6 +323,7 @@ console_locals = {
     'quick_test': quick_test,
     'compare_compression': compare_compression,
     'create_client_with_level': create_client_with_level,
+    'create_client_with_backend': create_client_with_backend,
     'CompressionBackend': CompressionBackend,
     'GlideClientConfiguration': GlideClientConfiguration,
     'NodeAddress': NodeAddress,
@@ -286,7 +342,8 @@ print("   • client.mget([key1, key2]) - Get multiple")
 print("   • client.memory_usage(key) or redis_client.memory_usage(key) - Check Redis memory usage")
 print("   • quick_test('data') - Quick compression test")
 print("   • compare_compression('data') - Compare compressed vs uncompressed")
-print("   • create_client_with_level(6) - Create client with specific compression level")
+print("   • create_client_with_level(6) - Create ZSTD client with specific compression level")
+print("   • create_client_with_backend('lz4') - Create client with specific backend")
 print()
 print("Type your commands below. Use Ctrl+C to exit.")
 print()

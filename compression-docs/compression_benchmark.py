@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 # Add the python directory to the path to import glide
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'python', 'python'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'python'))
 
 from glide import (
     GlideClient,
