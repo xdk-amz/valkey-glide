@@ -787,26 +787,62 @@ pub fn decompress_single_value_response(
     }
 }
 
-pub const MAGIC_BYTES: [u8; 4] = [0x00, 0x01, 0x02, 0x03];
-pub const HEADER_SIZE: usize = MAGIC_BYTES.len() + 1;
+/// Magic prefix for compressed data headers (first 3 bytes)
+pub const MAGIC_PREFIX: [u8; 3] = [0x00, 0x01, 0x02];
+
+/// Index in header for version byte and backend_id
+pub const HEADER_VERSION_INDEX: usize = 3;
+pub const HEADER_BACKEND_INDEX: usize = 4;
+
+/// Current compression format version
+pub const CURRENT_VERSION: u8 = 0x00;
+
+/// Total header size: 3 bytes magic + 1 byte version + 1 byte backend_id
+pub const HEADER_SIZE: usize = 5;
 pub const MIN_COMPRESSED_SIZE: usize = HEADER_SIZE + 1;
 
+/// Checks if data has a valid magic header (any version)
 pub fn has_magic_header(data: &[u8]) -> bool {
-    data.len() >= HEADER_SIZE && data[0..4] == MAGIC_BYTES
+    data.len() >= HEADER_SIZE && data[0..3] == MAGIC_PREFIX
 }
 
-pub fn extract_backend_id(data: &[u8]) -> Option<u8> {
+/// Extracts the version byte from the header
+/// Returns None if the data doesn't have a valid magic header
+pub fn extract_version(data: &[u8]) -> Option<u8> {
     if has_magic_header(data) {
-        Some(data[4])
+        Some(data[HEADER_VERSION_INDEX])
     } else {
         None
     }
 }
 
+/// Extracts the backend ID from the header
+/// Returns None if the data doesn't have a valid magic header
+pub fn extract_backend_id(data: &[u8]) -> Option<u8> {
+    if has_magic_header(data) {
+        Some(data[HEADER_BACKEND_INDEX])
+    } else {
+        None
+    }
+}
+
+/// Checks if the data has a valid magic header with the current version
+pub fn has_current_version_header(data: &[u8]) -> bool {
+    extract_version(data) == Some(CURRENT_VERSION)
+}
+
+/// Creates a compression header with the current version
 pub fn create_header(backend_id: u8) -> [u8; HEADER_SIZE] {
+    create_header_with_version(backend_id, CURRENT_VERSION)
+}
+
+/// Creates a compression header with a specific version
+/// This is useful for testing or supporting multiple versions
+pub fn create_header_with_version(backend_id: u8, version: u8) -> [u8; HEADER_SIZE] {
     let mut header = [0u8; HEADER_SIZE];
-    header[0..4].copy_from_slice(&MAGIC_BYTES);
-    header[4] = backend_id;
+    header[0..3].copy_from_slice(&MAGIC_PREFIX);
+    header[HEADER_VERSION_INDEX] = version;
+    header[HEADER_BACKEND_INDEX] = backend_id;
     header
 }
 

@@ -293,44 +293,183 @@ mod compression_tests {
 
     #[test]
     fn test_header_operations() {
-        // Test create_header()
+        // Test create_header() with current version
         let header_zstd = create_header(CompressionBackendType::Zstd.backend_id());
         assert_eq!(header_zstd.len(), HEADER_SIZE);
-        assert_eq!(&header_zstd[0..4], &MAGIC_BYTES);
-        assert_eq!(header_zstd[4], CompressionBackendType::Zstd.backend_id());
+        assert_eq!(&header_zstd[0..3], &MAGIC_PREFIX);
+        assert_eq!(header_zstd[HEADER_VERSION_INDEX], CURRENT_VERSION);
+        assert_eq!(
+            header_zstd[HEADER_BACKEND_INDEX],
+            CompressionBackendType::Zstd.backend_id()
+        );
 
         let header_lz4 = create_header(CompressionBackendType::Lz4.backend_id());
         assert_eq!(header_lz4.len(), HEADER_SIZE);
-        assert_eq!(&header_lz4[0..4], &MAGIC_BYTES);
-        assert_eq!(header_lz4[4], CompressionBackendType::Lz4.backend_id());
+        assert_eq!(&header_lz4[0..3], &MAGIC_PREFIX);
+        assert_eq!(header_lz4[HEADER_VERSION_INDEX], CURRENT_VERSION);
+        assert_eq!(
+            header_lz4[HEADER_BACKEND_INDEX],
+            CompressionBackendType::Lz4.backend_id()
+        );
+
+        // Test create_header_with_version()
+        let header_v1 = create_header_with_version(
+            CompressionBackendType::Zstd.backend_id(),
+            CURRENT_VERSION + 1,
+        );
+        assert_eq!(&header_v1[0..3], &MAGIC_PREFIX);
+        assert_eq!(header_v1[HEADER_VERSION_INDEX], CURRENT_VERSION + 1);
+        assert_eq!(
+            header_v1[HEADER_BACKEND_INDEX],
+            CompressionBackendType::Zstd.backend_id()
+        );
 
         // Test has_magic_header() - valid
-        let mut valid_data = MAGIC_BYTES.to_vec();
-        valid_data.extend_from_slice(&[0x01, 0x00]);
+        let mut valid_data = MAGIC_PREFIX.to_vec();
+        valid_data.extend_from_slice(&[
+            CURRENT_VERSION,
+            CompressionBackendType::Zstd.backend_id(),
+            0x00,
+        ]);
         assert!(has_magic_header(&valid_data));
 
-        let too_short = [0x47, 0x4C, 0x49];
+        // Test has_magic_header() - different version should still be valid
+        let mut valid_data_v1 = MAGIC_PREFIX.to_vec();
+        valid_data_v1.extend_from_slice(&[
+            CURRENT_VERSION + 1,
+            CompressionBackendType::Zstd.backend_id(),
+            0x00,
+        ]);
+        assert!(has_magic_header(&valid_data_v1));
+
+        let too_short = [0x00, 0x01, 0x02, 0x03];
         assert!(!has_magic_header(&too_short));
 
-        let mut wrong_magic = MAGIC_BYTES.to_vec();
-        wrong_magic[3] = 0x45; // Change last byte of magic
-        wrong_magic.push(0x01);
+        let mut wrong_magic = MAGIC_PREFIX.to_vec();
+        wrong_magic[2] = 0x45; // Change last byte of magic prefix
+        wrong_magic.extend_from_slice(&[CURRENT_VERSION, 0x01]);
         assert!(!has_magic_header(&wrong_magic));
 
-        // Test extract_backend_id()
-        let mut data_with_backend = MAGIC_BYTES.to_vec();
-        data_with_backend.extend_from_slice(&[0x01, 0xAA, 0xBB]);
-        assert_eq!(extract_backend_id(&data_with_backend), Some(0x01));
+        // Test extract_version()
+        let mut data_v0 = MAGIC_PREFIX.to_vec();
+        data_v0.extend_from_slice(&[
+            CURRENT_VERSION,
+            CompressionBackendType::Zstd.backend_id(),
+            0xAA,
+        ]);
+        assert_eq!(extract_version(&data_v0), Some(0x00));
 
-        let mut data_with_backend2 = MAGIC_BYTES.to_vec();
-        data_with_backend2.push(0x02);
-        assert_eq!(extract_backend_id(&data_with_backend2), Some(0x02));
+        let mut data_v1 = MAGIC_PREFIX.to_vec();
+        data_v1.extend_from_slice(&[
+            CURRENT_VERSION + 1,
+            CompressionBackendType::Zstd.backend_id(),
+            0xBB,
+        ]);
+        assert_eq!(extract_version(&data_v1), Some(0x01));
 
         let data_no_header = [0x00, 0x00, 0x00, 0x00, 0x01];
-        assert_eq!(extract_backend_id(&data_no_header), None);
+        assert_eq!(extract_version(&data_no_header), None);
 
-        let data_too_short = [0x47, 0x4C];
+        // Test has_current_version_header()
+        assert!(has_current_version_header(&data_v0));
+        assert!(!has_current_version_header(&data_v1));
+
+        // Test extract_backend_id()
+        let mut data_with_backend = MAGIC_PREFIX.to_vec();
+        data_with_backend.extend_from_slice(&[
+            CURRENT_VERSION,
+            CompressionBackendType::Zstd.backend_id(),
+            0xAA,
+            0xBB,
+        ]);
+        assert_eq!(
+            extract_backend_id(&data_with_backend),
+            Some(CompressionBackendType::Zstd.backend_id())
+        );
+
+        let data_no_header2 = [0x00, 0x00, 0x00, 0x00, 0x01];
+        assert_eq!(extract_backend_id(&data_no_header2), None);
+
+        let data_too_short = [0x00, 0x01];
         assert_eq!(extract_backend_id(&data_too_short), None);
+    }
+
+    #[test]
+    fn test_version_api() {
+        let future_version = CURRENT_VERSION + 1;
+        let max_version = 0xFF;
+        // Alarm if we've reached version 255
+        // Version 255 should introduce changes to support an additional versioning byte
+        assert!(CURRENT_VERSION < max_version);
+        // Test creating headers with different versions
+        let header_v0 = create_header(CompressionBackendType::Zstd.backend_id());
+        assert_eq!(extract_version(&header_v0), Some(CURRENT_VERSION));
+        assert_eq!(
+            extract_backend_id(&header_v0),
+            Some(CompressionBackendType::Zstd.backend_id())
+        );
+
+        let header_v1 =
+            create_header_with_version(CompressionBackendType::Zstd.backend_id(), future_version);
+        assert_eq!(extract_version(&header_v1), Some(future_version));
+        assert_eq!(
+            extract_backend_id(&header_v1),
+            Some(CompressionBackendType::Zstd.backend_id())
+        );
+
+        let header_v255 =
+            create_header_with_version(CompressionBackendType::Zstd.backend_id(), max_version);
+        assert_eq!(extract_version(&header_v255), Some(max_version));
+
+        // Test version detection on compressed data
+        use glide_core::compression::zstd_backend::ZstdBackend;
+        let backend = Box::new(ZstdBackend::new());
+        let config =
+            CompressionConfig::new(CompressionBackendType::Zstd).with_min_compression_size(10); // Lower threshold to ensure compression
+        let manager = CompressionManager::new(backend, config).unwrap();
+
+        // Use larger, highly compressible data to ensure compression happens
+        let test_data = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+        let compressed = manager.compress_value(test_data);
+
+        // Verify the compressed data has the current version
+        assert!(has_magic_header(&compressed));
+        assert_eq!(extract_version(&compressed), Some(CURRENT_VERSION));
+        assert!(has_current_version_header(&compressed));
+        assert_eq!(
+            extract_backend_id(&compressed),
+            Some(CompressionBackendType::Zstd.backend_id())
+        );
+
+        // Test decompression works with current version
+        let decompressed = manager.decompress_value(&compressed).unwrap();
+        assert_eq!(decompressed, test_data);
+
+        // Test forward compatibility: data with future version should still be decompressible
+        // if the underlying compression format is compatible
+        // Create a "future version" compressed data by manually modifying the version byte
+        // This simulates data compressed with a future version of the format
+        let mut future_version_compressed = compressed.to_vec();
+        future_version_compressed[HEADER_VERSION_INDEX] = future_version; // Change version to future version
+
+        // Verify the header has the future version
+        assert!(has_magic_header(&future_version_compressed));
+        assert_eq!(
+            extract_version(&future_version_compressed),
+            Some(future_version)
+        );
+        assert!(!has_current_version_header(&future_version_compressed));
+        assert_eq!(
+            extract_backend_id(&future_version_compressed),
+            Some(CompressionBackendType::Zstd.backend_id())
+        );
+
+        // The decompression should still work because the underlying format is the same
+        // This demonstrates forward compatibility - newer versions can be read by older clients
+        let decompressed_future = manager
+            .decompress_value(&future_version_compressed)
+            .unwrap();
+        assert_eq!(decompressed_future, test_data);
     }
 
     #[test]
