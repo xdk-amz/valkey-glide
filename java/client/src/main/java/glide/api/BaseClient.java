@@ -518,9 +518,30 @@ public abstract class BaseClient
     }
 
     /**
-     * Return a statistics
+     * Return statistics collected internally by GLIDE core.
      *
-     * @return Return a {@link Map} that contains the statistics collected internally by GLIDE core
+     * <p>The returned map includes various performance and operational metrics, including compression
+     * statistics when compression is enabled:
+     *
+     * <ul>
+     *   <li><code>total_values_compressed</code> - Number of values successfully compressed
+     *   <li><code>total_values_decompressed</code> - Number of values successfully decompressed
+     *   <li><code>total_original_bytes</code> - Total bytes of original data before compression
+     *   <li><code>total_bytes_compressed</code> - Total bytes after compression
+     *   <li><code>total_bytes_decompressed</code> - Total bytes after decompression
+     *   <li><code>compression_skipped_count</code> - Number of times compression was skipped (value
+     *       too small or compression disabled)
+     * </ul>
+     *
+     * @return A {@link Map} containing statistics keys and their values
+     * @example
+     *     <pre>{@code
+     * Map<String, String> stats = client.getStatistics();
+     * System.out.println("Values compressed: " + stats.get("total_values_compressed"));
+     * System.out.println("Bytes saved: " +
+     *     (Long.parseLong(stats.get("total_original_bytes")) -
+     *      Long.parseLong(stats.get("total_bytes_compressed"))));
+     * }</pre>
      */
     public Map<String, String> getStatistics() {
         return StatisticsResolver.getStatistics();

@@ -128,6 +128,17 @@ public abstract class BaseClientConfiguration {
      */
     @Builder.Default private final boolean lazyConnect = false;
 
+    /**
+     * Configuration for automatic compression of values.
+     *
+     * <p>When enabled, the client will automatically compress values for SET-type commands and
+     * decompress values for GET-type commands. This can reduce bandwidth usage and storage
+     * requirements.
+     *
+     * <p>If not set, compression is disabled.
+     */
+    private final CompressionConfiguration compression;
+
     public List<NodeAddress> getAddresses() {
         return List.copyOf(addresses);
     }

@@ -333,6 +333,78 @@ See [our Scala and Kotlin examples](../examples/) to learn how to use Valkey GLI
 ### Accessing tests
 For more examples, you can refer to the test folder [unit tests](./client/src/test/java/glide/api) and [integration tests](./integTest/src/test/java/glide).
 
+## Compression
+
+Valkey GLIDE supports automatic compression of values to reduce bandwidth usage and storage requirements. Compression is transparent to your application - values are automatically compressed on SET operations and decompressed on GET operations.
+
+### Quick Start
+
+Enable compression with default settings (ZSTD, level 3, 64-byte minimum):
+
+```java
+import glide.api.models.configuration.CompressionConfiguration;
+
+CompressionConfiguration compression = CompressionConfiguration.builder()
+    .enabled(true)
+    .build();
+
+GlideClientConfiguration config = GlideClientConfiguration.builder()
+    .address(NodeAddress.builder().host("localhost").port(6379).build())
+    .compression(compression)
+    .build();
+```
+
+### Custom Configuration
+
+Configure compression backend, level, and minimum size:
+
+```java
+CompressionConfiguration compression = CompressionConfiguration.builder()
+    .enabled(true)
+    .backend(CompressionBackend.LZ4)      // Use LZ4 for faster compression
+    .compressionLevel(6)                   // Higher level = better compression
+    .minCompressionSize(128)               // Only compress values >= 128 bytes
+    .build();
+```
+
+### Compression Backends
+
+- **ZSTD** (default): Better compression ratios, moderate speed. Recommended for most use cases.
+- **LZ4**: Very fast compression/decompression, lower compression ratios. Recommended for latency-sensitive applications.
+
+### Monitoring Compression
+
+Access compression statistics to monitor effectiveness:
+
+```java
+Map<String, String> stats = client.getStatistics();
+System.out.println("Values compressed: " + stats.get("total_values_compressed"));
+System.out.println("Original bytes: " + stats.get("total_original_bytes"));
+System.out.println("Compressed bytes: " + stats.get("total_bytes_compressed"));
+```
+
+### Full Example
+
+See [CompressionExample.java](../examples/java/src/main/java/glide/examples/CompressionExample.java) for complete examples including:
+- Basic compression with defaults
+- Custom compression settings
+- Monitoring compression statistics
+- Comparing ZSTD vs LZ4 performance
+
+### When to Use Compression
+
+**Enable compression when:**
+- Storing large values (> 1KB recommended)
+- Operating in bandwidth-constrained environments
+- Storage costs are a concern
+- Network latency is higher than compression overhead
+
+**Avoid compression when:**
+- Storing small values (< 64 bytes)
+- Client CPU resources are limited
+- Data is already compressed (images, videos, archives)
+- Ultra-low latency is critical
+
 ### Benchmarks
 
 You can run benchmarks using `./gradlew run`. You can set arguments using the args flag like:

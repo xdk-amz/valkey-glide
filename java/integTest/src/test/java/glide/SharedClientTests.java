@@ -76,8 +76,16 @@ public class SharedClientTests {
     @MethodSource("getClients")
     public void validate_statistics(BaseClient client) {
         assertFalse(client.getStatistics().isEmpty());
-        // we expect 8 items in the statistics map
+        // we expect 8 items in the statistics map (including compression statistics)
         assertEquals(8, client.getStatistics().size());
+
+        // Verify compression statistics keys are present (even if zero when disabled)
+        assertTrue(client.getStatistics().containsKey("total_values_compressed"));
+        assertTrue(client.getStatistics().containsKey("total_values_decompressed"));
+        assertTrue(client.getStatistics().containsKey("total_original_bytes"));
+        assertTrue(client.getStatistics().containsKey("total_bytes_compressed"));
+        assertTrue(client.getStatistics().containsKey("total_bytes_decompressed"));
+        assertTrue(client.getStatistics().containsKey("compression_skipped_count"));
     }
 
     @AfterAll

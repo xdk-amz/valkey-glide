@@ -6,6 +6,7 @@ import static connection_request.ConnectionRequestOuterClass.*;
 import glide.api.models.configuration.AdvancedBaseClientConfiguration;
 import glide.api.models.configuration.BackoffStrategy;
 import glide.api.models.configuration.BaseClientConfiguration;
+import glide.api.models.configuration.CompressionBackend;
 import glide.api.models.configuration.GlideClientConfiguration;
 import glide.api.models.configuration.GlideClusterClientConfiguration;
 import glide.api.models.configuration.ServerCredentials;
@@ -343,6 +344,22 @@ public class ConnectionManager {
                             requestBuilder.setPubsubSubscriptions(subBuilder.build());
                         }
 
+                        // Set compression configuration
+                        if (configuration.getCompression() != null) {
+                            var compression = configuration.getCompression();
+                            CompressionConfig.Builder compressionBuilder =
+                                    CompressionConfig.newBuilder()
+                                            .setEnabled(compression.isEnabled())
+                                            .setBackend(mapCompressionBackend(compression.getBackend()))
+                                            .setMinCompressionSize(compression.getMinCompressionSize());
+
+                            if (compression.getCompressionLevel() != null) {
+                                compressionBuilder.setCompressionLevel(compression.getCompressionLevel());
+                            }
+
+                            requestBuilder.setCompressionConfig(compressionBuilder.build());
+                        }
+
                         // Build and serialize to bytes
                         ConnectionRequest request = requestBuilder.build();
                         byte[] requestBytes = request.toByteArray();
@@ -511,5 +528,23 @@ public class ConnectionManager {
             return ((GlideClusterClientConfiguration) configuration).getAdvancedConfiguration();
         }
         return null;
+    }
+
+    /**
+     * Maps Java CompressionBackend enum to protobuf CompressionBackend enum.
+     *
+     * @param backend Java compression backend
+     * @return Protobuf compression backend
+     */
+    private static connection_request.ConnectionRequestOuterClass.CompressionBackend
+            mapCompressionBackend(CompressionBackend backend) {
+        switch (backend) {
+            case ZSTD:
+                return connection_request.ConnectionRequestOuterClass.CompressionBackend.ZSTD;
+            case LZ4:
+                return connection_request.ConnectionRequestOuterClass.CompressionBackend.LZ4;
+            default:
+                throw new IllegalArgumentException("Unknown compression backend: " + backend);
+        }
     }
 }
