@@ -1,6 +1,11 @@
 // Copyright Valkey GLIDE Project Contributors - SPDX Identifier: Apache-2.0
 // Generated from glide-core/src/protobuf/connection_request.proto
 // This file provides C# protobuf message classes matching the connection_request.proto schema.
+//
+// TODO(tech-debt): Replace this hand-written protobuf code with auto-generated code from protoc.
+// The Java and Python bindings use generated protobuf classes. Hand-written protobuf is fragile —
+// any proto schema change requires manual updates here. To generate, run:
+//   protoc --csharp_out=csharp/lib/Protobuf glide-core/src/protobuf/connection_request.proto
 
 using Google.Protobuf;
 using Google.Protobuf.Collections;

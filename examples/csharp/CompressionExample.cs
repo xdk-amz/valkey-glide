@@ -23,10 +23,10 @@ Console.WriteLine();
 // ============================================================
 
 var zstdCompression = new CompressionConfiguration(
-    enabled: true,
-    backend: CompressionBackend.Zstd,
-    compressionLevel: 3,       // ZSTD default level
-    minCompressionSize: 64     // Only compress values >= 64 bytes
+    Enabled: true,
+    Backend: CompressionBackend.Zstd,
+    CompressionLevel: 3,       // ZSTD default level
+    MinCompressionSize: 64     // Only compress values >= 64 bytes
 );
 
 var standaloneConfig = new GlideClientConfiguration(
@@ -105,10 +105,10 @@ Console.WriteLine();
 // ============================================================
 
 var lz4Compression = new CompressionConfiguration(
-    enabled: true,
-    backend: CompressionBackend.Lz4,
-    compressionLevel: 0,       // LZ4 default level
-    minCompressionSize: 128    // Higher threshold for cluster
+    Enabled: true,
+    Backend: CompressionBackend.Lz4,
+    CompressionLevel: 0,       // LZ4 default level
+    MinCompressionSize: 128    // Higher threshold for cluster
 );
 
 var clusterConfig = new GlideClusterClientConfiguration(
@@ -162,9 +162,9 @@ Console.WriteLine();
 // var lz4Client = await GlideClient.CreateAsync(new GlideClientConfiguration(
 //     addresses: new[] { new NodeAddress("localhost", 6379) },
 //     compression: new CompressionConfiguration(
-//         enabled: true,
-//         backend: CompressionBackend.Lz4,
-//         minCompressionSize: 64)));
+//         Enabled: true,
+//         Backend: CompressionBackend.Lz4,
+//         MinCompressionSize: 64)));
 //
 // var mismatchResult = await lz4Client.GetAsync("mismatch_key");
 // Debug.Assert(mismatchResult == mismatchValue,

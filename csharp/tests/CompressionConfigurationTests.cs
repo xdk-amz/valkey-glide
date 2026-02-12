@@ -25,10 +25,10 @@ public class CompressionConfigurationTests
     public void EnabledWithZstd_ShouldCreateSuccessfully()
     {
         var config = new CompressionConfiguration(
-            enabled: true,
-            backend: CompressionBackend.Zstd,
-            compressionLevel: 3,
-            minCompressionSize: 64);
+            Enabled: true,
+            Backend: CompressionBackend.Zstd,
+            CompressionLevel: 3,
+            MinCompressionSize: 64);
 
         Assert.True(config.Enabled);
         Assert.Equal(CompressionBackend.Zstd, config.Backend);
@@ -40,10 +40,10 @@ public class CompressionConfigurationTests
     public void EnabledWithLz4_ShouldCreateSuccessfully()
     {
         var config = new CompressionConfiguration(
-            enabled: true,
-            backend: CompressionBackend.Lz4,
-            compressionLevel: 0,
-            minCompressionSize: 128);
+            Enabled: true,
+            Backend: CompressionBackend.Lz4,
+            CompressionLevel: 0,
+            MinCompressionSize: 128);
 
         Assert.True(config.Enabled);
         Assert.Equal(CompressionBackend.Lz4, config.Backend);
@@ -55,8 +55,8 @@ public class CompressionConfigurationTests
     public void NullCompressionLevel_ShouldUseBackendDefault()
     {
         var config = new CompressionConfiguration(
-            enabled: true,
-            backend: CompressionBackend.Zstd);
+            Enabled: true,
+            Backend: CompressionBackend.Zstd);
 
         Assert.Null(config.CompressionLevel);
     }
@@ -66,8 +66,8 @@ public class CompressionConfigurationTests
     {
         // MIN_COMPRESSED_SIZE = 6 (HEADER_SIZE + 1)
         var config = new CompressionConfiguration(
-            enabled: true,
-            minCompressionSize: CompressionConfiguration.MinCompressedSize);
+            Enabled: true,
+            MinCompressionSize: CompressionConfiguration.MinCompressedSize);
 
         Assert.Equal(CompressionConfiguration.MinCompressedSize, config.MinCompressionSize);
     }
@@ -77,8 +77,8 @@ public class CompressionConfigurationTests
     {
         var ex = Assert.Throws<ConfigurationError>(() =>
             new CompressionConfiguration(
-                enabled: true,
-                minCompressionSize: CompressionConfiguration.MinCompressedSize - 1));
+                Enabled: true,
+                MinCompressionSize: CompressionConfiguration.MinCompressedSize - 1));
 
         Assert.Contains("min_compression_size", ex.Message);
         Assert.Contains($"{CompressionConfiguration.MinCompressedSize}", ex.Message);
@@ -89,8 +89,8 @@ public class CompressionConfigurationTests
     {
         var ex = Assert.Throws<ConfigurationError>(() =>
             new CompressionConfiguration(
-                enabled: true,
-                minCompressionSize: 0));
+                Enabled: true,
+                MinCompressionSize: 0));
 
         Assert.Contains("min_compression_size", ex.Message);
     }
@@ -105,8 +105,8 @@ public class CompressionConfigurationTests
     {
         Assert.Throws<ConfigurationError>(() =>
             new CompressionConfiguration(
-                enabled: true,
-                minCompressionSize: size));
+                Enabled: true,
+                MinCompressionSize: size));
     }
 
     [Theory]
@@ -119,8 +119,8 @@ public class CompressionConfigurationTests
     public void MinCompressionSize_ValidValues_ShouldSucceed(uint size)
     {
         var config = new CompressionConfiguration(
-            enabled: true,
-            minCompressionSize: size);
+            Enabled: true,
+            MinCompressionSize: size);
 
         Assert.Equal(size, config.MinCompressionSize);
     }
@@ -138,8 +138,8 @@ public class CompressionConfigurationTests
     public void ValidBackends_ShouldCreateSuccessfully(CompressionBackend backend)
     {
         var config = new CompressionConfiguration(
-            enabled: true,
-            backend: backend);
+            Enabled: true,
+            Backend: backend);
 
         Assert.Equal(backend, config.Backend);
     }
@@ -149,8 +149,8 @@ public class CompressionConfigurationTests
     {
         Assert.Throws<ConfigurationError>(() =>
             new CompressionConfiguration(
-                enabled: true,
-                backend: (CompressionBackend)99));
+                Enabled: true,
+                Backend: (CompressionBackend)99));
     }
 
     [Theory]
@@ -164,9 +164,9 @@ public class CompressionConfigurationTests
     {
         // Note: actual level validation is done by Rust core at client creation time
         var config = new CompressionConfiguration(
-            enabled: true,
-            backend: CompressionBackend.Zstd,
-            compressionLevel: level);
+            Enabled: true,
+            Backend: CompressionBackend.Zstd,
+            CompressionLevel: level);
 
         Assert.Equal(level, config.CompressionLevel);
     }
@@ -182,9 +182,9 @@ public class CompressionConfigurationTests
     {
         // Note: actual level validation is done by Rust core at client creation time
         var config = new CompressionConfiguration(
-            enabled: true,
-            backend: CompressionBackend.Lz4,
-            compressionLevel: level);
+            Enabled: true,
+            Backend: CompressionBackend.Lz4,
+            CompressionLevel: level);
 
         Assert.Equal(level, config.CompressionLevel);
     }

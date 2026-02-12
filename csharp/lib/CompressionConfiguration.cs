@@ -10,82 +10,61 @@ namespace Glide;
 /// automatically compressed before being sent to the server and decompressed when retrieved.
 /// Compression is transparent to the user — compressed and uncompressed clients can
 /// interoperate seamlessly.
+///
+/// This is a record type providing structural equality, making it easy to compare
+/// configurations in tests and application code.
 /// </remarks>
-public class CompressionConfiguration
+/// <param name="Enabled">Whether compression is enabled.</param>
+/// <param name="Backend">The compression backend to use. Defaults to <see cref="CompressionBackend.Zstd"/>.</param>
+/// <param name="CompressionLevel">The compression level. If null, the backend default is used.
+/// Valid ranges are backend-specific and validated by the Rust core.
+/// ZSTD default is 3, LZ4 default is 0.</param>
+/// <param name="MinCompressionSize">Minimum value size in bytes for compression. Defaults to 64.
+/// Must be at least <see cref="MinCompressedSize"/> (6 bytes).</param>
+/// <exception cref="ConfigurationError">Thrown when configuration parameters are invalid.</exception>
+public record CompressionConfiguration(
+    bool Enabled = false,
+    CompressionBackend Backend = CompressionBackend.Zstd,
+    int? CompressionLevel = null,
+    uint MinCompressionSize = 64)
 {
     /// <summary>
     /// Minimum allowed value for <see cref="MinCompressionSize"/>.
     /// This is the header size (5 bytes) + 1 byte of data = 6 bytes.
-    /// Matches the Rust core constant <c>MIN_COMPRESSED_SIZE</c>.
     /// </summary>
+    /// <remarks>
+    /// IMPORTANT: This must stay in sync with the Rust core constant <c>MIN_COMPRESSED_SIZE</c>
+    /// defined in glide-core/src/compression.rs. If the header format changes in the Rust core,
+    /// this value must be updated to match. Once FFI is fully wired, consider reading this
+    /// value from the native library instead of hardcoding it.
+    /// </remarks>
     public const uint MinCompressedSize = 6;
 
-    /// <summary>
-    /// Whether compression is enabled.
-    /// </summary>
-    public bool Enabled { get; }
+    // Validate on construction. Record primary constructors don't support throwing,
+    // so we validate in the init block via a property trick isn't available — instead
+    // we validate here and the compiler calls this after setting all properties.
+    private bool _validated = Validate(Enabled, Backend, CompressionLevel, MinCompressionSize);
 
-    /// <summary>
-    /// The compression backend to use.
-    /// </summary>
-    public CompressionBackend Backend { get; }
-
-    /// <summary>
-    /// The compression level to use. If null, the backend's default level will be used.
-    /// Valid ranges are backend-specific and validated by the Rust core.
-    /// ZSTD default is 3, LZ4 default is 0.
-    /// </summary>
-    public int? CompressionLevel { get; }
-
-    /// <summary>
-    /// The minimum size in bytes for values to be compressed.
-    /// Values smaller than this will not be compressed. Defaults to 64 bytes.
-    /// Must be at least <see cref="MinCompressedSize"/> (6 bytes).
-    /// </summary>
-    public uint MinCompressionSize { get; }
-
-    /// <summary>
-    /// Creates a new compression configuration.
-    /// </summary>
-    /// <param name="enabled">Whether compression is enabled.</param>
-    /// <param name="backend">The compression backend to use. Defaults to <see cref="CompressionBackend.Zstd"/>.</param>
-    /// <param name="compressionLevel">The compression level. If null, the backend default is used.</param>
-    /// <param name="minCompressionSize">Minimum value size in bytes for compression. Defaults to 64.</param>
-    /// <exception cref="ConfigurationError">Thrown when configuration parameters are invalid.</exception>
-    public CompressionConfiguration(
-        bool enabled = false,
-        CompressionBackend backend = CompressionBackend.Zstd,
-        int? compressionLevel = null,
-        uint minCompressionSize = 64)
+    private static bool Validate(bool enabled, CompressionBackend backend, int? compressionLevel, uint minCompressionSize)
     {
-        Enabled = enabled;
-        Backend = backend;
-        CompressionLevel = compressionLevel;
-        MinCompressionSize = minCompressionSize;
-
-        Validate();
-    }
-
-    /// <summary>
-    /// Validates the compression configuration parameters.
-    /// </summary>
-    /// <exception cref="ConfigurationError">Thrown when configuration parameters are invalid.</exception>
-    private void Validate()
-    {
-        if (MinCompressionSize < MinCompressedSize)
+        if (minCompressionSize < MinCompressedSize)
         {
+            // Note: error message uses snake_case intentionally for cross-language consistency
+            // with Python and Java bindings (see python/glide-shared/glide_shared/config.py).
             throw new ConfigurationError(
                 $"min_compression_size should be at least {MinCompressedSize} bytes");
         }
 
-        if (!Enum.IsDefined(typeof(CompressionBackend), Backend))
+        if (!Enum.IsDefined(typeof(CompressionBackend), backend))
         {
             throw new ConfigurationError(
-                $"Invalid compression backend: {Backend}");
+                $"Invalid compression Backend: {backend}");
         }
 
         // Note: compression_level validation is performed by the Rust core,
         // which uses the actual compression library's valid ranges.
         // This ensures the validation stays in sync with library updates.
+
+        return true;
     }
 }

@@ -69,10 +69,10 @@ public class CompressionIntegrationTests
     public void StandaloneConfig_WithCompression_ShouldSerialize()
     {
         var compression = new CompressionConfiguration(
-            enabled: true,
-            backend: CompressionBackend.Zstd,
-            compressionLevel: 3,
-            minCompressionSize: 64);
+            Enabled: true,
+            Backend: CompressionBackend.Zstd,
+            CompressionLevel: 3,
+            MinCompressionSize: 64);
 
         var config = new GlideClientConfiguration(
             addresses: new[] { new NodeAddress("localhost", 6379) },
@@ -91,10 +91,10 @@ public class CompressionIntegrationTests
     public void ClusterConfig_WithCompression_ShouldSerialize()
     {
         var compression = new CompressionConfiguration(
-            enabled: true,
-            backend: CompressionBackend.Lz4,
-            compressionLevel: 0,
-            minCompressionSize: 128);
+            Enabled: true,
+            Backend: CompressionBackend.Lz4,
+            CompressionLevel: 0,
+            MinCompressionSize: 128);
 
         var config = new GlideClusterClientConfiguration(
             addresses: new[] { new NodeAddress("localhost", 6379) },
@@ -128,10 +128,10 @@ public class CompressionIntegrationTests
     public void SerializeCompressionConfig_Zstd_ShouldProduceValidProtobuf()
     {
         var compression = new CompressionConfiguration(
-            enabled: true,
-            backend: CompressionBackend.Zstd,
-            compressionLevel: 3,
-            minCompressionSize: 64);
+            Enabled: true,
+            Backend: CompressionBackend.Zstd,
+            CompressionLevel: 3,
+            MinCompressionSize: 64);
 
         var protoConfig = ConnectionRequestSerializer.SerializeCompressionConfig(compression);
 
@@ -145,10 +145,10 @@ public class CompressionIntegrationTests
     public void SerializeCompressionConfig_Lz4_ShouldProduceValidProtobuf()
     {
         var compression = new CompressionConfiguration(
-            enabled: true,
-            backend: CompressionBackend.Lz4,
-            compressionLevel: 0,
-            minCompressionSize: 128);
+            Enabled: true,
+            Backend: CompressionBackend.Lz4,
+            CompressionLevel: 0,
+            MinCompressionSize: 128);
 
         var protoConfig = ConnectionRequestSerializer.SerializeCompressionConfig(compression);
 
@@ -162,10 +162,10 @@ public class CompressionIntegrationTests
     public void SerializeCompressionConfig_NullLevel_ShouldNotSetField()
     {
         var compression = new CompressionConfiguration(
-            enabled: true,
-            backend: CompressionBackend.Zstd,
-            compressionLevel: null,
-            minCompressionSize: 64);
+            Enabled: true,
+            Backend: CompressionBackend.Zstd,
+            CompressionLevel: null,
+            MinCompressionSize: 64);
 
         var protoConfig = ConnectionRequestSerializer.SerializeCompressionConfig(compression);
 
@@ -260,18 +260,18 @@ public class CompressionIntegrationTests
         var zstdConfig = new GlideClientConfiguration(
             addresses: new[] { new NodeAddress("localhost", 6379) },
             compression: new CompressionConfiguration(
-                enabled: true,
-                backend: CompressionBackend.Zstd,
-                compressionLevel: 3,
-                minCompressionSize: 64));
+                Enabled: true,
+                Backend: CompressionBackend.Zstd,
+                CompressionLevel: 3,
+                MinCompressionSize: 64));
 
         var lz4Config = new GlideClientConfiguration(
             addresses: new[] { new NodeAddress("localhost", 6379) },
             compression: new CompressionConfiguration(
-                enabled: true,
-                backend: CompressionBackend.Lz4,
-                compressionLevel: 0,
-                minCompressionSize: 64));
+                Enabled: true,
+                Backend: CompressionBackend.Lz4,
+                CompressionLevel: 0,
+                MinCompressionSize: 64));
 
         var zstdBytes = ConnectionRequestSerializer.Serialize(zstdConfig, clusterMode: false);
         var lz4Bytes = ConnectionRequestSerializer.Serialize(lz4Config, clusterMode: false);
@@ -287,10 +287,10 @@ public class CompressionIntegrationTests
     public void DisabledCompression_ShouldSerialize()
     {
         var compression = new CompressionConfiguration(
-            enabled: false,
-            backend: CompressionBackend.Zstd,
-            compressionLevel: 3,
-            minCompressionSize: 64);
+            Enabled: false,
+            Backend: CompressionBackend.Zstd,
+            CompressionLevel: 3,
+            MinCompressionSize: 64);
 
         Assert.False(compression.Enabled);
 
@@ -306,8 +306,8 @@ public class CompressionIntegrationTests
     public void LargeMinCompressionSize_ShouldWork()
     {
         var config = new CompressionConfiguration(
-            enabled: true,
-            minCompressionSize: 1048576); // 1MB
+            Enabled: true,
+            MinCompressionSize: 1048576); // 1MB
 
         Assert.Equal(1048576u, config.MinCompressionSize);
     }
@@ -316,9 +316,9 @@ public class CompressionIntegrationTests
     public void NegativeCompressionLevel_ShouldBeAccepted()
     {
         var config = new CompressionConfiguration(
-            enabled: true,
-            backend: CompressionBackend.Zstd,
-            compressionLevel: -5);
+            Enabled: true,
+            Backend: CompressionBackend.Zstd,
+            CompressionLevel: -5);
 
         Assert.Equal(-5, config.CompressionLevel);
 
@@ -345,10 +345,10 @@ public class CompressionIntegrationTests
             databaseId: 1,
             lazyConnect: true,
             compression: new CompressionConfiguration(
-                enabled: true,
-                backend: CompressionBackend.Zstd,
-                compressionLevel: 3,
-                minCompressionSize: 64));
+                Enabled: true,
+                Backend: CompressionBackend.Zstd,
+                CompressionLevel: 3,
+                MinCompressionSize: 64));
 
         var bytes = ConnectionRequestSerializer.Serialize(config, clusterMode: false);
         Assert.NotNull(bytes);
@@ -362,9 +362,9 @@ public class CompressionIntegrationTests
             addresses: new[] { new NodeAddress("node1", 6379), new NodeAddress("node2", 6379) },
             useTls: true,
             compression: new CompressionConfiguration(
-                enabled: true,
-                backend: CompressionBackend.Lz4,
-                minCompressionSize: 256));
+                Enabled: true,
+                Backend: CompressionBackend.Lz4,
+                MinCompressionSize: 256));
 
         var bytes = ConnectionRequestSerializer.Serialize(config, clusterMode: true);
         Assert.NotNull(bytes);
@@ -382,10 +382,10 @@ public class CompressionIntegrationTests
     public void ValidZstdLevels_ShouldCreateConfig(int level)
     {
         var config = new CompressionConfiguration(
-            enabled: true,
-            backend: CompressionBackend.Zstd,
-            compressionLevel: level,
-            minCompressionSize: 64);
+            Enabled: true,
+            Backend: CompressionBackend.Zstd,
+            CompressionLevel: level,
+            MinCompressionSize: 64);
 
         var protoConfig = ConnectionRequestSerializer.SerializeCompressionConfig(config);
         Assert.Equal(level, protoConfig.CompressionLevel);
@@ -401,10 +401,10 @@ public class CompressionIntegrationTests
     public void ValidLz4Levels_ShouldCreateConfig(int level)
     {
         var config = new CompressionConfiguration(
-            enabled: true,
-            backend: CompressionBackend.Lz4,
-            compressionLevel: level,
-            minCompressionSize: 64);
+            Enabled: true,
+            Backend: CompressionBackend.Lz4,
+            CompressionLevel: level,
+            MinCompressionSize: 64);
 
         var protoConfig = ConnectionRequestSerializer.SerializeCompressionConfig(config);
         Assert.Equal(level, protoConfig.CompressionLevel);

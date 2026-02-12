@@ -16,10 +16,11 @@ usage pattern for SET/GET with statistics verification.
 
 ### Current Status
 
-The configuration, statistics, and protobuf serialization code runs today.
-The actual SET/GET operations and statistics verification are commented out with
-TODO markers — they require the full C# client FFI wiring (`GlideClient.CreateAsync`,
-`SetAsync`, `GetAsync`, `GetStatisticsAsync`) to be complete.
+> **⚠️ Note:** The actual SET/GET operations and statistics verification are commented out
+> throughout this example because they require the full C# client FFI wiring
+> (`GlideClient.CreateAsync`, `SetAsync`, `GetAsync`, `GetStatisticsAsync`) which is not
+> yet complete. Only configuration creation, statistics demonstration, and protobuf
+> serialization code runs today. Uncomment the client usage sections once FFI is wired.
 
 ### Running
 
