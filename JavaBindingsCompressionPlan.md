@@ -34,7 +34,7 @@ Include an example file demonstrating client creation with compression configura
 - [x] 1. Create `CompressionConfiguration` Java config class with builder, validation, and protobuf conversion
 - [x] 2. Add `compressionConfiguration` field to `BaseClientConfiguration` and wire into `ConnectionManager` protobuf serialization
 - [x] 3. Add JNI `getMinCompressedSize` to expose Rust constant and use in Java validation
-- [ ] 4. Write integration tests for compression (basic SET/GET, threshold, both backends, batch, validation, disabled-by-default)
-- [ ] 5. Create Java compression example file
-- [ ] 6. Run lint (`spotlessApply`)
+- [x] 4. Write integration tests for compression (basic SET/GET, threshold, both backends, batch, validation, disabled-by-default)
+- [x] 5. Create Java compression example file
+- [x] 6. Run lint (`spotlessApply`)
 
