@@ -716,3 +716,8 @@ pub fn get_statistics<'a>(env: &'a Env) -> Result<Object<'a>> {
 
     Ok(stats)
 }
+
+#[napi]
+pub fn get_min_compressed_size() -> u32 {
+    glide_core::compression::MIN_COMPRESSED_SIZE as u32
+}

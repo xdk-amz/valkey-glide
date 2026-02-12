@@ -273,6 +273,7 @@ import {
     createZUnion,
     createZUnionStore,
     dropOtelSpan,
+    getMinCompressedSize,
     getStatistics,
     valueFromSplitPointer,
 } from ".";
@@ -592,6 +593,72 @@ export type ReadFrom =
     | "AZAffinityReplicasAndPrimary";
 
 /**
+ * Enum representing the compression backend to use for automatic compression.
+ */
+export enum CompressionBackend {
+    /**
+     * Use zstd compression backend.
+     * Default compression level: 3
+     */
+    ZSTD = 0,
+    /**
+     * Use lz4 compression backend.
+     * Default compression level: 0
+     */
+    LZ4 = 1,
+}
+
+/**
+ * Represents the compression configuration for automatic compression of values.
+ *
+ * When compression is enabled, values sent to the server will be automatically compressed
+ * using the specified backend and configuration. Values are decompressed transparently on read.
+ *
+ * @remarks
+ * - `enabled` - Whether compression is enabled. Defaults to `false`.
+ * - `backend` - The compression backend to use. Defaults to `CompressionBackend.ZSTD`.
+ * - `compressionLevel` - The compression level to use. If not set, the backend's default level will be used.
+ *   Valid ranges are backend-specific and validated by the Rust core.
+ *   ZSTD default is 3, LZ4 default is 0.
+ * - `minCompressionSize` - The minimum size in bytes for values to be compressed.
+ *   Values smaller than this will not be compressed. Defaults to 64 bytes.
+ *
+ * @example
+ * ```typescript
+ * const compression: CompressionConfiguration = {
+ *     enabled: true,
+ *     backend: CompressionBackend.ZSTD,
+ *     compressionLevel: 3,
+ *     minCompressionSize: 64,
+ * };
+ * ```
+ */
+export interface CompressionConfiguration {
+    /**
+     * Whether compression is enabled.
+     * Defaults to `false`.
+     */
+    enabled?: boolean;
+    /**
+     * The compression backend to use.
+     * Defaults to `CompressionBackend.ZSTD`.
+     */
+    backend?: CompressionBackend;
+    /**
+     * The compression level to use. If not set, the backend's default level will be used.
+     * Valid ranges are backend-specific and validated by the Rust core.
+     * ZSTD default is 3, LZ4 default is 0.
+     */
+    compressionLevel?: number;
+    /**
+     * The minimum size in bytes for values to be compressed.
+     * Values smaller than this will not be compressed.
+     * Defaults to 64 bytes.
+     */
+    minCompressionSize?: number;
+}
+
+/**
  * Configuration settings for creating a client. Shared settings for standalone and cluster clients.
  *
  * @remarks
@@ -857,6 +924,25 @@ export interface BaseClientConfiguration {
      * ```
      */
     lazyConnect?: boolean;
+    /**
+     * Compression configuration for automatic compression of values.
+     * When configured with `enabled: true`, values sent to the server will be automatically
+     * compressed using the specified backend and decompressed transparently on read.
+     *
+     * @example
+     * ```typescript
+     * const config: BaseClientConfiguration = {
+     *   addresses: [{ host: "localhost", port: 6379 }],
+     *   compression: {
+     *     enabled: true,
+     *     backend: CompressionBackend.ZSTD,
+     *     compressionLevel: 3,
+     *     minCompressionSize: 64,
+     *   },
+     * };
+     * ```
+     */
+    compression?: CompressionConfiguration;
 }
 
 /**
@@ -9195,6 +9281,33 @@ export class BaseClient {
             );
         }
 
+        // Build compression config if provided
+        let compressionConfig:
+            | connection_request.ICompressionConfig
+            | undefined;
+
+        if (options.compression) {
+            const comp = options.compression;
+            const minSize = comp.minCompressionSize ?? 64;
+            const minAllowed = getMinCompressedSize();
+
+            if (minSize < minAllowed) {
+                throw new ConfigurationError(
+                    `minCompressionSize should be at least ${minAllowed} bytes`,
+                );
+            }
+
+            compressionConfig =
+                connection_request.CompressionConfig.create({
+                    enabled: comp.enabled ?? false,
+                    backend:
+                        comp.backend ??
+                        connection_request.CompressionBackend.ZSTD,
+                    compressionLevel: comp.compressionLevel ?? null,
+                    minCompressionSize: minSize,
+                });
+        }
+
         return {
             protocol,
             clientName: options.clientName,
@@ -9211,6 +9324,7 @@ export class BaseClient {
             clientAz: options.clientAz ?? null,
             connectionRetryStrategy: options.connectionBackoff,
             lazyConnect: options.lazyConnect ?? false,
+            compressionConfig,
         };
     }
 
