@@ -140,12 +140,12 @@ public class CompressionTests {
                     statLong(after, "total_values_compressed") > beforeCompressed,
                     "Compression should be applied for " + size + "B value");
 
-            // compressed bytes <= original bytes
+            // compressed bytes < original bytes (strict — test data is highly compressible)
             long origDelta =
                     statLong(after, "total_original_bytes") - statLong(before, "total_original_bytes");
             long compDelta =
                     statLong(after, "total_bytes_compressed") - statLong(before, "total_bytes_compressed");
-            assertTrue(compDelta <= origDelta, "Compressed size should be <= original size");
+            assertTrue(compDelta < origDelta, "Compressed size should be < original size");
 
             client.del(new String[] {key}).get();
         }
@@ -250,6 +250,12 @@ public class CompressionTests {
                 statLong(after, "total_values_compressed") > beforeCompressed,
                 "LZ4 compression should be applied");
 
+        long origDelta =
+                statLong(after, "total_original_bytes") - statLong(before, "total_original_bytes");
+        long compDelta =
+                statLong(after, "total_bytes_compressed") - statLong(before, "total_bytes_compressed");
+        assertTrue(compDelta < origDelta, "LZ4 compressed size should be < original size");
+
         standaloneClientLz4.del(new String[] {key}).get();
     }
 
@@ -353,7 +359,7 @@ public class CompressionTests {
                 statLong(after, "total_original_bytes") - statLong(before, "total_original_bytes");
         long compDelta =
                 statLong(after, "total_bytes_compressed") - statLong(before, "total_bytes_compressed");
-        assertTrue(compDelta <= origDelta, "Compressed size should be <= original size for 10MB value");
+        assertTrue(compDelta < origDelta, "Compressed size should be < original size for 10MB value");
 
         client.del(new String[] {key}).get();
     }
@@ -388,7 +394,7 @@ public class CompressionTests {
                 statLong(after, "total_original_bytes") - statLong(before, "total_original_bytes");
         long compDelta =
                 statLong(after, "total_bytes_compressed") - statLong(before, "total_bytes_compressed");
-        assertTrue(compDelta <= origDelta, "Compressed size should be <= original size with TTL");
+        assertTrue(compDelta < origDelta, "Compressed size should be < original size with TTL");
 
         client.del(new String[] {key}).get();
     }
@@ -424,6 +430,12 @@ public class CompressionTests {
         assertTrue(
                 statLong(after, "total_values_compressed") - beforeCompressed >= numKeys,
                 "All batch SET values should be compressed");
+
+        long origDelta =
+                statLong(after, "total_original_bytes") - statLong(before, "total_original_bytes");
+        long compDelta =
+                statLong(after, "total_bytes_compressed") - statLong(before, "total_bytes_compressed");
+        assertTrue(compDelta < origDelta, "Batch compressed size should be < original size");
 
         // Verify GET returns correct values
         Batch getBatch = new Batch();
@@ -468,6 +480,12 @@ public class CompressionTests {
         assertTrue(
                 statLong(after, "total_values_compressed") - beforeCompressed >= numKeys,
                 "All batch SET values should be compressed");
+
+        long origDelta =
+                statLong(after, "total_original_bytes") - statLong(before, "total_original_bytes");
+        long compDelta =
+                statLong(after, "total_bytes_compressed") - statLong(before, "total_bytes_compressed");
+        assertTrue(compDelta < origDelta, "Cluster batch compressed size should be < original size");
 
         // Verify GET returns correct values
         ClusterBatch getBatch = new ClusterBatch();
@@ -537,6 +555,12 @@ public class CompressionTests {
         assertEquals(10, skippedDelta, "10 small values should be skipped");
         assertEquals(20, compressedDelta, "20 medium+large values should be compressed");
 
+        long origDelta =
+                statLong(after, "total_original_bytes") - statLong(before, "total_original_bytes");
+        long compDelta =
+                statLong(after, "total_bytes_compressed") - statLong(before, "total_bytes_compressed");
+        assertTrue(compDelta < origDelta, "Mixed batch compressed size should be < original size");
+
         // Verify all values
         Batch getBatch = new Batch();
         for (String key : keys) {
@@ -577,6 +601,12 @@ public class CompressionTests {
                 numKeys,
                 compressedDelta,
                 "All " + numKeys + " values should be compressed across slots");
+
+        long origDelta =
+                statLong(after, "total_original_bytes") - statLong(before, "total_original_bytes");
+        long compDelta =
+                statLong(after, "total_bytes_compressed") - statLong(before, "total_bytes_compressed");
+        assertTrue(compDelta < origDelta, "Multislot compressed size should be < original size");
 
         // Verify all values
         for (int i = 0; i < numKeys; i++) {
@@ -671,6 +701,14 @@ public class CompressionTests {
                     statLong(after, "total_values_compressed") > beforeCompressed,
                     "Compression should be applied for " + backend + " level " + level);
 
+            long origDelta =
+                    statLong(after, "total_original_bytes") - statLong(before, "total_original_bytes");
+            long compDelta =
+                    statLong(after, "total_bytes_compressed") - statLong(before, "total_bytes_compressed");
+            assertTrue(
+                    compDelta < origDelta,
+                    "Compressed size should be < original for " + backend + " level " + level);
+
             client.del(new String[] {key}).get();
         }
     }
@@ -722,6 +760,8 @@ public class CompressionTests {
     @ParameterizedTest(autoCloseArguments = false)
     @MethodSource("compressedClients")
     public void test_compression_various_data_types(BaseClient client) {
+        Map<String, String> before = client.getStatistics();
+
         // JSON-like data
         String jsonKey = "json_" + UUID.randomUUID();
         String jsonValue =
@@ -744,5 +784,12 @@ public class CompressionTests {
         assertEquals(OK, client.set(unicodeKey, unicodeValue).get());
         assertEquals(unicodeValue, client.get(unicodeKey).get());
         client.del(new String[] {unicodeKey}).get();
+
+        Map<String, String> after = client.getStatistics();
+        long origDelta =
+                statLong(after, "total_original_bytes") - statLong(before, "total_original_bytes");
+        long compDelta =
+                statLong(after, "total_bytes_compressed") - statLong(before, "total_bytes_compressed");
+        assertTrue(compDelta < origDelta, "Data types compressed size should be < original size");
     }
 }

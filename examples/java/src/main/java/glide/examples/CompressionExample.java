@@ -66,6 +66,27 @@ public class CompressionExample {
             log(INFO, "example", "  Compressed bytes:    " + stats.get("total_bytes_compressed"));
             log(INFO, "example", "  Skipped (too small): " + stats.get("compression_skipped_count"));
 
+            // Verify compression actually happened and reduced size
+            long compressed = Long.parseLong(stats.get("total_values_compressed"));
+            long originalBytes = Long.parseLong(stats.get("total_original_bytes"));
+            long compressedBytes = Long.parseLong(stats.get("total_bytes_compressed"));
+            if (compressed <= 0) {
+                throw new RuntimeException("Expected at least one value to be compressed");
+            }
+            if (compressedBytes >= originalBytes) {
+                throw new RuntimeException(
+                        "Expected compressed bytes ("
+                                + compressedBytes
+                                + ") < original bytes ("
+                                + originalBytes
+                                + ")");
+            }
+            log(
+                    INFO,
+                    "example",
+                    "Compression ratio: "
+                            + String.format("%.1f%%", (1.0 - (double) compressedBytes / originalBytes) * 100));
+
             // Cleanup
             client.del(new String[] {"compression_demo_key"}).get();
             log(INFO, "example", "Cleanup complete");
