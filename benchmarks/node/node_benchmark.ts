@@ -13,6 +13,8 @@ import {
     GlideClusterClient,
     GlideString,
     Logger,
+    CompressionBackend,
+    CompressionConfiguration,
 } from "valkey-glide";
 import {
     generateKeyGet,
@@ -216,6 +218,7 @@ async function main(
     useTLS: boolean,
     clusterModeEnabled: boolean,
     port: number,
+    compression: boolean,
 ) {
     const data = generateValue(dataSize);
 
@@ -242,6 +245,35 @@ async function main(
             clusterModeEnabled,
         );
         await new Promise((resolve) => setTimeout(resolve, 100));
+
+        // Run compressed glide variant when --compression flag is set
+        if (compression) {
+            const compressionConfig: CompressionConfiguration = {
+                enabled: true,
+                backend: CompressionBackend.ZSTD,
+                minCompressionSize: 64,
+            };
+            const compressedClients = await createClients(clientCount, () =>
+                clientClass.createClient({
+                    addresses: [{ host, port }],
+                    useTLS,
+                    compression: compressionConfig,
+                }),
+            );
+            await runClients(
+                compressedClients,
+                "glide_compressed",
+                totalCommands,
+                numOfConcurrentTasks,
+                dataSize,
+                data,
+                (client) => {
+                    (client as GlideClient).close();
+                },
+                clusterModeEnabled,
+            );
+            await new Promise((resolve) => setTimeout(resolve, 100));
+        }
     }
 
     if (clientsToRun == "all") {
@@ -348,6 +380,7 @@ Promise.resolve() // just added to clean the indentation of the rest of the call
                 receivedOptions.tls,
                 receivedOptions.clusterModeEnabled,
                 receivedOptions.port,
+                receivedOptions.compression,
             );
         }
 

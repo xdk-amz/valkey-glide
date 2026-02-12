@@ -61,6 +61,7 @@ const optionDefinitions = [
     { name: "minimal", type: Boolean, defaultValue: false },
     { name: "clusterModeEnabled", type: Boolean, defaultValue: false },
     { name: "port", type: Number, defaultValue: PORT },
+    { name: "compression", type: Boolean, defaultValue: false },
 ];
 
 export const receivedOptions = commandLineArgs(optionDefinitions);
