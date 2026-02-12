@@ -35,8 +35,7 @@ public class CompressionConfiguration {
      * The minimum allowed value for {@code minCompressionSize}. This is fetched from the Rust core
      * via JNI to stay in sync with the compression header size (currently HEADER_SIZE + 1 = 6 bytes).
      */
-    public static final int MIN_ALLOWED_COMPRESSION_SIZE =
-            GlideNativeBridge.getMinCompressedSize();
+    public static final int MIN_ALLOWED_COMPRESSION_SIZE = GlideNativeBridge.getMinCompressedSize();
 
     /** Whether compression is enabled. Defaults to {@code false}. */
     @Builder.Default private final boolean enabled = false;

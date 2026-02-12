@@ -274,9 +274,7 @@ public class CompressionTests {
         // Read with no-compression client — should get raw compressed bytes (not equal to original)
         String raw = standaloneClientNoCompression.get(key).get();
         assertNotNull(raw, "Key should exist — raw value must not be null");
-        assertTrue(
-                !value.equals(raw),
-                "Non-compression client should not transparently decompress");
+        assertTrue(!value.equals(raw), "Non-compression client should not transparently decompress");
 
         standaloneClient.del(new String[] {key}).get();
     }
@@ -409,7 +407,7 @@ public class CompressionTests {
         Map<String, String> before = standaloneClient.getStatistics();
         long beforeCompressed = statLong(before, "total_values_compressed");
 
-        Batch setBatch = new Batch();
+        Batch setBatch = new Batch(false);
         List<String> keys = new ArrayList<>();
         List<String> values = new ArrayList<>();
         for (int i = 0; i < numKeys; i++) {
@@ -420,7 +418,7 @@ public class CompressionTests {
             setBatch.set(key, val);
         }
 
-        Object[] setResults = standaloneClient.exec(setBatch).get();
+        Object[] setResults = standaloneClient.exec(setBatch, false).get();
         for (Object r : setResults) {
             assertEquals(OK, r);
         }
@@ -437,11 +435,11 @@ public class CompressionTests {
         assertTrue(compDelta < origDelta, "Batch compressed size should be < original size");
 
         // Verify GET returns correct values
-        Batch getBatch = new Batch();
+        Batch getBatch = new Batch(false);
         for (String key : keys) {
             getBatch.get(key);
         }
-        Object[] getResults = standaloneClient.exec(getBatch).get();
+        Object[] getResults = standaloneClient.exec(getBatch, false).get();
         for (int i = 0; i < numKeys; i++) {
             assertEquals(values.get(i), getResults[i]);
         }
@@ -459,7 +457,7 @@ public class CompressionTests {
         Map<String, String> before = clusterClient.getStatistics();
         long beforeCompressed = statLong(before, "total_values_compressed");
 
-        ClusterBatch setBatch = new ClusterBatch();
+        ClusterBatch setBatch = new ClusterBatch(false);
         List<String> keys = new ArrayList<>();
         List<String> values = new ArrayList<>();
         for (int i = 0; i < numKeys; i++) {
@@ -470,7 +468,7 @@ public class CompressionTests {
             setBatch.set(key, val);
         }
 
-        Object[] setResults = clusterClient.exec(setBatch).get();
+        Object[] setResults = clusterClient.exec(setBatch, false).get();
         for (Object r : setResults) {
             assertEquals(OK, r);
         }
@@ -487,11 +485,11 @@ public class CompressionTests {
         assertTrue(compDelta < origDelta, "Cluster batch compressed size should be < original size");
 
         // Verify GET returns correct values
-        ClusterBatch getBatch = new ClusterBatch();
+        ClusterBatch getBatch = new ClusterBatch(false);
         for (String key : keys) {
             getBatch.get(key);
         }
-        Object[] getResults = clusterClient.exec(getBatch).get();
+        Object[] getResults = clusterClient.exec(getBatch, false).get();
         for (int i = 0; i < numKeys; i++) {
             assertEquals(values.get(i), getResults[i]);
         }
@@ -511,7 +509,7 @@ public class CompressionTests {
         long beforeCompressed = statLong(before, "total_values_compressed");
         long beforeSkipped = statLong(before, "compression_skipped_count");
 
-        Batch batch = new Batch();
+        Batch batch = new Batch(false);
         List<String> keys = new ArrayList<>();
         List<String> values = new ArrayList<>();
 
@@ -542,7 +540,7 @@ public class CompressionTests {
             batch.set(key, val);
         }
 
-        Object[] setResults = standaloneClient.exec(batch).get();
+        Object[] setResults = standaloneClient.exec(batch, false).get();
         for (Object r : setResults) {
             assertEquals(OK, r);
         }
@@ -561,11 +559,11 @@ public class CompressionTests {
         assertTrue(compDelta < origDelta, "Mixed batch compressed size should be < original size");
 
         // Verify all values
-        Batch getBatch = new Batch();
+        Batch getBatch = new Batch(false);
         for (String key : keys) {
             getBatch.get(key);
         }
-        Object[] getResults = standaloneClient.exec(getBatch).get();
+        Object[] getResults = standaloneClient.exec(getBatch, false).get();
         for (int i = 0; i < keys.size(); i++) {
             assertEquals(values.get(i), getResults[i]);
         }
@@ -597,9 +595,7 @@ public class CompressionTests {
         Map<String, String> after = clusterClient.getStatistics();
         long compressedDelta = statLong(after, "total_values_compressed") - beforeCompressed;
         assertEquals(
-                numKeys,
-                compressedDelta,
-                "All " + numKeys + " values should be compressed across slots");
+                numKeys, compressedDelta, "All " + numKeys + " values should be compressed across slots");
 
         long origDelta =
                 statLong(after, "total_original_bytes") - statLong(before, "total_original_bytes");
@@ -681,10 +677,7 @@ public class CompressionTests {
 
         try (GlideClient client =
                 GlideClient.createClient(
-                                commonClientConfig()
-                                        .requestTimeout(10000)
-                                        .compressionConfiguration(config)
-                                        .build())
+                                commonClientConfig().requestTimeout(10000).compressionConfiguration(config).build())
                         .get()) {
             String key = "level_" + backend + "_" + level + "_" + UUID.randomUUID();
             String value = compressibleText(1024);
