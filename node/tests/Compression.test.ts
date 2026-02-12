@@ -472,9 +472,7 @@ describe("Compression - Standalone", () => {
                 batch.set(key, value);
             }
 
-            const results = await (client as GlideClient).exec(batch, {
-                raiseOnError: true,
-            });
+            const results = await (client as GlideClient).exec(batch, true);
             expect(results).not.toBeNull();
             expect(results!.every((r) => r === "OK")).toBe(true);
 
@@ -529,9 +527,7 @@ describe("Compression - Standalone", () => {
                 batch.set(key, value);
             }
 
-            const results = await (client as GlideClient).exec(batch, {
-                raiseOnError: true,
-            });
+            const results = await (client as GlideClient).exec(batch, true);
             expect(results).not.toBeNull();
             expect(results!.every((r) => r === "OK")).toBe(true);
 
@@ -878,7 +874,7 @@ describe("Compression - Cluster", () => {
 
             const results = await (client as GlideClusterClient).exec(
                 batch,
-                { raiseOnError: true },
+                true,
             );
             expect(results).not.toBeNull();
             expect(results!.every((r) => r === "OK")).toBe(true);
