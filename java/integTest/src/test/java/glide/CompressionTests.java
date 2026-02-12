@@ -5,6 +5,8 @@ import static glide.TestUtilities.commonClientConfig;
 import static glide.TestUtilities.commonClusterClientConfig;
 import static glide.api.BaseClient.OK;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -20,6 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Stream;
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.AfterAll;
@@ -265,12 +268,129 @@ public class CompressionTests {
 
         // Read with no-compression client — should get raw compressed bytes (not equal to original)
         String raw = standaloneClientNoCompression.get(key).get();
-        // The raw value will be the compressed bytes interpreted as a string, which won't match
+        assertNotNull(raw, "Key should exist — raw value must not be null");
         assertTrue(
-                !value.equals(raw) || raw == null,
+                !value.equals(raw),
                 "Non-compression client should not transparently decompress");
 
         standaloneClient.del(new String[] {key}).get();
+    }
+
+    // ==================== Cross-backend interop ====================
+
+    @SneakyThrows
+    @Test
+    public void test_compression_backend_mismatch() {
+        String key = "backend_mismatch_" + UUID.randomUUID();
+        String value = compressibleText(10240); // 10KB
+
+        // Write with ZSTD
+        assertEquals(OK, standaloneClient.set(key, value).get());
+
+        // Read with LZ4 — data should still be readable because decompression detects the header
+        assertEquals(value, standaloneClientLz4.get(key).get());
+
+        // Write with LZ4
+        String key2 = "backend_mismatch2_" + UUID.randomUUID();
+        assertEquals(OK, standaloneClientLz4.set(key2, value).get());
+
+        // Read with ZSTD
+        assertEquals(value, standaloneClient.get(key2).get());
+
+        standaloneClient.del(new String[] {key, key2}).get();
+    }
+
+    // ==================== Empty value ====================
+
+    @SneakyThrows
+    @ParameterizedTest(autoCloseArguments = false)
+    @MethodSource("compressedClients")
+    public void test_compression_empty_value(BaseClient client) {
+        String key = "empty_" + UUID.randomUUID();
+
+        Map<String, String> before = client.getStatistics();
+        long beforeCompressed = statLong(before, "total_values_compressed");
+        long beforeSkipped = statLong(before, "compression_skipped_count");
+
+        assertEquals(OK, client.set(key, "").get());
+        assertEquals("", client.get(key).get());
+
+        Map<String, String> after = client.getStatistics();
+        assertTrue(
+                statLong(after, "compression_skipped_count") > beforeSkipped,
+                "Empty value should be skipped");
+        assertEquals(
+                beforeCompressed,
+                statLong(after, "total_values_compressed"),
+                "Empty value should not be compressed");
+
+        client.del(new String[] {key}).get();
+    }
+
+    // ==================== Very large value ====================
+
+    @SneakyThrows
+    @ParameterizedTest(autoCloseArguments = false)
+    @MethodSource("compressedClients")
+    @Timeout(60)
+    public void test_compression_very_large_value(BaseClient client) {
+        String key = "very_large_" + UUID.randomUUID();
+        int size = 10 * 1024 * 1024; // 10MB
+        String value = compressibleText(size);
+
+        Map<String, String> before = client.getStatistics();
+        long beforeCompressed = statLong(before, "total_values_compressed");
+
+        assertEquals(OK, client.set(key, value).get());
+        assertEquals(value, client.get(key).get());
+
+        Map<String, String> after = client.getStatistics();
+        assertTrue(
+                statLong(after, "total_values_compressed") > beforeCompressed,
+                "Compression should be applied for 10MB value");
+
+        long origDelta =
+                statLong(after, "total_original_bytes") - statLong(before, "total_original_bytes");
+        long compDelta =
+                statLong(after, "total_bytes_compressed") - statLong(before, "total_bytes_compressed");
+        assertTrue(compDelta <= origDelta, "Compressed size should be <= original size for 10MB value");
+
+        client.del(new String[] {key}).get();
+    }
+
+    // ==================== TTL compatibility ====================
+
+    @SneakyThrows
+    @ParameterizedTest(autoCloseArguments = false)
+    @MethodSource("compressedClients")
+    public void test_compression_with_ttl(BaseClient client) {
+        String key = "ttl_test_" + UUID.randomUUID();
+        String value = compressibleText(10240); // 10KB
+
+        Map<String, String> before = client.getStatistics();
+        long beforeCompressed = statLong(before, "total_values_compressed");
+
+        assertEquals(OK, client.set(key, value).get());
+        assertTrue(client.expire(key, 10).get(), "EXPIRE should succeed");
+
+        // Verify value and TTL
+        assertEquals(value, client.get(key).get());
+        long ttl = client.ttl(key).get();
+        assertTrue(ttl > 0 && ttl <= 10, "TTL should be between 1 and 10, got " + ttl);
+
+        // Verify compression was applied
+        Map<String, String> after = client.getStatistics();
+        assertTrue(
+                statLong(after, "total_values_compressed") > beforeCompressed,
+                "Compression should be applied with TTL");
+
+        long origDelta =
+                statLong(after, "total_original_bytes") - statLong(before, "total_original_bytes");
+        long compDelta =
+                statLong(after, "total_bytes_compressed") - statLong(before, "total_bytes_compressed");
+        assertTrue(compDelta <= origDelta, "Compressed size should be <= original size with TTL");
+
+        client.del(new String[] {key}).get();
     }
 
     // ==================== Batch operations ====================
@@ -349,6 +469,122 @@ public class CompressionTests {
                 statLong(after, "total_values_compressed") - beforeCompressed >= numKeys,
                 "All batch SET values should be compressed");
 
+        // Verify GET returns correct values
+        ClusterBatch getBatch = new ClusterBatch();
+        for (String key : keys) {
+            getBatch.get(key);
+        }
+        Object[] getResults = clusterClient.exec(getBatch).get();
+        for (int i = 0; i < numKeys; i++) {
+            assertEquals(values.get(i), getResults[i]);
+        }
+
+        // Cleanup
+        for (String key : keys) {
+            clusterClient.del(new String[] {key}).get();
+        }
+    }
+
+    // ==================== Mixed-size batch ====================
+
+    @SneakyThrows
+    @Test
+    public void test_compression_batch_mixed_sizes() {
+        String prefix = "mixed_batch_" + UUID.randomUUID() + "_";
+
+        Map<String, String> before = standaloneClient.getStatistics();
+        long beforeCompressed = statLong(before, "total_values_compressed");
+        long beforeSkipped = statLong(before, "compression_skipped_count");
+
+        Batch batch = new Batch();
+        List<String> keys = new ArrayList<>();
+        List<String> values = new ArrayList<>();
+
+        // 10 small values (below 64B threshold — should be skipped)
+        for (int i = 0; i < 10; i++) {
+            String key = prefix + "small_" + i;
+            String val = compressibleText(32);
+            keys.add(key);
+            values.add(val);
+            batch.set(key, val);
+        }
+
+        // 10 medium values (5KB — should be compressed)
+        for (int i = 0; i < 10; i++) {
+            String key = prefix + "medium_" + i;
+            String val = compressibleText(5120);
+            keys.add(key);
+            values.add(val);
+            batch.set(key, val);
+        }
+
+        // 10 large values (100KB — should be compressed)
+        for (int i = 0; i < 10; i++) {
+            String key = prefix + "large_" + i;
+            String val = compressibleText(102400);
+            keys.add(key);
+            values.add(val);
+            batch.set(key, val);
+        }
+
+        Object[] setResults = standaloneClient.exec(batch).get();
+        for (Object r : setResults) {
+            assertEquals(OK, r);
+        }
+
+        Map<String, String> after = standaloneClient.getStatistics();
+        long skippedDelta = statLong(after, "compression_skipped_count") - beforeSkipped;
+        long compressedDelta = statLong(after, "total_values_compressed") - beforeCompressed;
+
+        assertEquals(10, skippedDelta, "10 small values should be skipped");
+        assertEquals(20, compressedDelta, "20 medium+large values should be compressed");
+
+        // Verify all values
+        Batch getBatch = new Batch();
+        for (String key : keys) {
+            getBatch.get(key);
+        }
+        Object[] getResults = standaloneClient.exec(getBatch).get();
+        for (int i = 0; i < keys.size(); i++) {
+            assertEquals(values.get(i), getResults[i]);
+        }
+
+        standaloneClient.del(keys.toArray(new String[0])).get();
+    }
+
+    // ==================== Cluster multi-slot ====================
+
+    @SneakyThrows
+    @Test
+    public void test_compression_cluster_multislot() {
+        int numKeys = 100;
+        String prefix = "multislot_" + UUID.randomUUID() + "_";
+
+        Map<String, String> before = clusterClient.getStatistics();
+        long beforeCompressed = statLong(before, "total_values_compressed");
+
+        List<String> keys = new ArrayList<>();
+        List<String> values = new ArrayList<>();
+        for (int i = 0; i < numKeys; i++) {
+            String key = prefix + i;
+            String val = compressibleText(5120); // 5KB
+            keys.add(key);
+            values.add(val);
+            assertEquals(OK, clusterClient.set(key, val).get());
+        }
+
+        Map<String, String> after = clusterClient.getStatistics();
+        long compressedDelta = statLong(after, "total_values_compressed") - beforeCompressed;
+        assertEquals(
+                numKeys,
+                compressedDelta,
+                "All " + numKeys + " values should be compressed across slots");
+
+        // Verify all values
+        for (int i = 0; i < numKeys; i++) {
+            assertEquals(values.get(i), clusterClient.get(keys.get(i)).get());
+        }
+
         // Cleanup
         for (String key : keys) {
             clusterClient.del(new String[] {key}).get();
@@ -383,6 +619,103 @@ public class CompressionTests {
         assertEquals(CompressionBackend.ZSTD, config.getBackend());
         assertEquals(null, config.getCompressionLevel());
         assertEquals(64, config.getMinCompressionSize());
+    }
+
+    // ==================== Valid compression levels ====================
+
+    static Stream<Arguments> validCompressionLevels() {
+        return Stream.of(
+                // ZSTD valid levels
+                Arguments.of(CompressionBackend.ZSTD, 1),
+                Arguments.of(CompressionBackend.ZSTD, 3),
+                Arguments.of(CompressionBackend.ZSTD, 10),
+                Arguments.of(CompressionBackend.ZSTD, 22),
+                Arguments.of(CompressionBackend.ZSTD, -5),
+                // LZ4 valid levels
+                Arguments.of(CompressionBackend.LZ4, -128),
+                Arguments.of(CompressionBackend.LZ4, -10),
+                Arguments.of(CompressionBackend.LZ4, 0),
+                Arguments.of(CompressionBackend.LZ4, 1),
+                Arguments.of(CompressionBackend.LZ4, 6),
+                Arguments.of(CompressionBackend.LZ4, 12));
+    }
+
+    @SneakyThrows
+    @ParameterizedTest
+    @MethodSource("validCompressionLevels")
+    public void test_compression_valid_levels(CompressionBackend backend, int level) {
+        CompressionConfiguration config =
+                CompressionConfiguration.builder()
+                        .enabled(true)
+                        .backend(backend)
+                        .compressionLevel(level)
+                        .minCompressionSize(64)
+                        .build();
+
+        try (GlideClient client =
+                GlideClient.createClient(
+                                commonClientConfig()
+                                        .requestTimeout(10000)
+                                        .compressionConfiguration(config)
+                                        .build())
+                        .get()) {
+            String key = "level_" + backend + "_" + level + "_" + UUID.randomUUID();
+            String value = compressibleText(1024);
+
+            Map<String, String> before = client.getStatistics();
+            long beforeCompressed = statLong(before, "total_values_compressed");
+
+            assertEquals(OK, client.set(key, value).get());
+            assertEquals(value, client.get(key).get());
+
+            Map<String, String> after = client.getStatistics();
+            assertTrue(
+                    statLong(after, "total_values_compressed") > beforeCompressed,
+                    "Compression should be applied for " + backend + " level " + level);
+
+            client.del(new String[] {key}).get();
+        }
+    }
+
+    // ==================== Invalid compression levels ====================
+
+    static Stream<Arguments> invalidCompressionLevels() {
+        return Stream.of(
+                Arguments.of(CompressionBackend.ZSTD, 23), // Above max
+                Arguments.of(CompressionBackend.ZSTD, 100),
+                Arguments.of(CompressionBackend.ZSTD, -200000), // Below min
+                Arguments.of(CompressionBackend.LZ4, 13), // Above max
+                Arguments.of(CompressionBackend.LZ4, 100),
+                Arguments.of(CompressionBackend.LZ4, -129), // Below min
+                Arguments.of(CompressionBackend.LZ4, -1000));
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidCompressionLevels")
+    public void test_compression_invalid_levels(CompressionBackend backend, int level) {
+        CompressionConfiguration config =
+                CompressionConfiguration.builder()
+                        .enabled(true)
+                        .backend(backend)
+                        .compressionLevel(level)
+                        .minCompressionSize(64)
+                        .build();
+
+        ExecutionException exception =
+                assertThrows(
+                        ExecutionException.class,
+                        () ->
+                                GlideClient.createClient(
+                                                commonClientConfig()
+                                                        .requestTimeout(10000)
+                                                        .compressionConfiguration(config)
+                                                        .build())
+                                        .get());
+
+        String errorMsg = exception.getCause().getMessage().toLowerCase();
+        assertTrue(
+                errorMsg.contains("compression") || errorMsg.contains("level"),
+                "Error should mention compression level issue: " + exception.getCause().getMessage());
     }
 
     // ==================== Data types ====================

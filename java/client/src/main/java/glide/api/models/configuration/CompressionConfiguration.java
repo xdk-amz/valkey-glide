@@ -4,6 +4,7 @@ package glide.api.models.configuration;
 import static connection_request.ConnectionRequestOuterClass.*;
 
 import glide.api.models.exceptions.ConfigurationError;
+import glide.internal.GlideNativeBridge;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NonNull;
@@ -27,14 +28,15 @@ import lombok.NonNull;
  * }</pre>
  */
 @Getter
-@Builder
+@Builder(buildMethodName = "buildInternal")
 public class CompressionConfiguration {
 
     /**
-     * The minimum allowed value for {@code minCompressionSize}. This is determined by the compression
-     * header size used internally (HEADER_SIZE + 1 = 6 bytes).
+     * The minimum allowed value for {@code minCompressionSize}. This is fetched from the Rust core
+     * via JNI to stay in sync with the compression header size (currently HEADER_SIZE + 1 = 6 bytes).
      */
-    public static final int MIN_ALLOWED_COMPRESSION_SIZE = 6;
+    public static final int MIN_ALLOWED_COMPRESSION_SIZE =
+            GlideNativeBridge.getMinCompressedSize();
 
     /** Whether compression is enabled. Defaults to {@code false}. */
     @Builder.Default private final boolean enabled = false;
@@ -51,7 +53,7 @@ public class CompressionConfiguration {
 
     /**
      * The minimum size in bytes for values to be compressed. Values smaller than this will not be
-     * compressed. Defaults to 64 bytes. Must be at least {@value #MIN_ALLOWED_COMPRESSION_SIZE}.
+     * compressed. Defaults to 64 bytes. Must be at least {@link #MIN_ALLOWED_COMPRESSION_SIZE}.
      */
     @Builder.Default private final int minCompressionSize = 64;
 
@@ -72,22 +74,22 @@ public class CompressionConfiguration {
         return builder.build();
     }
 
-    private void validate() {
+    /** Validates the configuration. Called at build time and before protobuf conversion. */
+    void validate() {
         if (minCompressionSize < MIN_ALLOWED_COMPRESSION_SIZE) {
             throw new ConfigurationError(
                     "minCompressionSize must be at least " + MIN_ALLOWED_COMPRESSION_SIZE + " bytes");
         }
     }
 
-    // Lombok @Builder generates the builder; this static helper validates at build time.
+    /**
+     * Custom builder that validates configuration at build time. Delegates to Lombok's generated
+     * builder for field handling, avoiding direct access to Lombok's internal field naming
+     * conventions.
+     */
     public static class CompressionConfigurationBuilder {
         public CompressionConfiguration build() {
-            CompressionConfiguration config =
-                    new CompressionConfiguration(
-                            this.enabled$value,
-                            this.backend$value == null ? CompressionBackend.ZSTD : this.backend$value,
-                            this.compressionLevel,
-                            this.minCompressionSize$set ? this.minCompressionSize$value : 64);
+            CompressionConfiguration config = buildInternal();
             config.validate();
             return config;
         }
