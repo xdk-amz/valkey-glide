@@ -13,9 +13,31 @@ import {
     TimeoutError,
 } from "@valkey/valkey-glide";
 
-/** Helper to read a numeric stat from the statistics record. */
+/** Known stat keys that must be present when compression is configured. */
+const REQUIRED_COMPRESSION_STAT_KEYS = [
+    "total_values_compressed",
+    "total_bytes_compressed",
+    "total_original_bytes",
+    "compression_skipped_count",
+];
+
+/** Helper to read a numeric stat, throwing if a known key is missing. */
 function statNum(stats: Record<string, string>, key: string): number {
+    if (REQUIRED_COMPRESSION_STAT_KEYS.includes(key) && !(key in stats)) {
+        throw new Error(
+            `Expected stat key "${key}" not found. ` +
+                `Available keys: ${Object.keys(stats).join(", ")}`,
+        );
+    }
+
     return parseInt(stats[key] ?? "0", 10);
+}
+
+/** Runtime assertion helper - throws on failure. */
+function assert(condition: boolean, message: string): void {
+    if (!condition) {
+        throw new Error(`Assertion failed: ${message}`);
+    }
 }
 
 /**
@@ -71,6 +93,20 @@ async function appLogic(client: GlideClient) {
             `compressed: ${compressedAfterSmall - compressedBefore} (expected 0)`,
     );
 
+    // Assert: small value was skipped, not compressed
+    assert(
+        smallResult?.toString() === smallValue,
+        "Small value data integrity check failed",
+    );
+    assert(
+        skippedAfterSmall - skippedBefore === 1,
+        `Expected 1 skip for small value, got ${skippedAfterSmall - skippedBefore}`,
+    );
+    assert(
+        compressedAfterSmall === compressedBefore,
+        `Expected no compression for small value, but count changed by ${compressedAfterSmall - compressedBefore}`,
+    );
+
     // --- Large value (above threshold) ---
     const statsBeforeLarge = client.getStatistics() as Record<string, string>;
     const compressedBeforeLarge = statNum(statsBeforeLarge, "total_values_compressed");
@@ -96,6 +132,20 @@ async function appLogic(client: GlideClient) {
             `compressed: ${compressedAfterLarge - compressedBeforeLarge} (expected 1), ` +
             `original bytes: ${originalDelta}, compressed bytes: ${compressedDelta}, ` +
             `ratio: ${((1 - compressedDelta / originalDelta) * 100).toFixed(1)}% savings`,
+    );
+
+    // Assert: large value was compressed with correct byte-size invariant
+    assert(
+        largeResult?.toString() === largeValue,
+        "Large value data integrity check failed",
+    );
+    assert(
+        compressedAfterLarge - compressedBeforeLarge === 1,
+        `Expected 1 compression for large value, got ${compressedAfterLarge - compressedBeforeLarge}`,
+    );
+    assert(
+        compressedDelta > 0 && compressedDelta < originalDelta,
+        `Byte-size invariant violated: compressed (${compressedDelta}) must be > 0 and < original (${originalDelta})`,
     );
 }
 
@@ -141,6 +191,20 @@ async function lz4Example() {
                 `compressed: ${compressedAfter - compressedBefore} (expected 1), ` +
                 `original bytes: ${originalDelta}, compressed bytes: ${compressedDelta}, ` +
                 `ratio: ${((1 - compressedDelta / originalDelta) * 100).toFixed(1)}% savings`,
+        );
+
+        // Assert: LZ4 compression occurred with correct byte-size invariant
+        assert(
+            result?.toString() === value,
+            "LZ4 data integrity check failed",
+        );
+        assert(
+            compressedAfter - compressedBefore === 1,
+            `Expected 1 LZ4 compression, got ${compressedAfter - compressedBefore}`,
+        );
+        assert(
+            compressedDelta > 0 && compressedDelta < originalDelta,
+            `LZ4 byte-size invariant violated: compressed (${compressedDelta}) must be > 0 and < original (${originalDelta})`,
         );
     } finally {
         client?.close();

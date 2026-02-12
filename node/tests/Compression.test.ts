@@ -77,12 +77,42 @@ function generateBase64Data(sizeBytes: number): string {
     return result;
 }
 
-// --- Helper to get numeric stat ---
+// --- Known stat keys returned by getStatistics() for compression ---
+const KNOWN_COMPRESSION_STAT_KEYS = new Set([
+    "total_values_compressed",
+    "total_bytes_compressed",
+    "total_original_bytes",
+    "compression_skipped_count",
+]);
+
+// --- Helper to get numeric stat with key validation ---
 function getStatNum(
     stats: Record<string, string>,
     key: string,
 ): number {
+    if (KNOWN_COMPRESSION_STAT_KEYS.has(key) && !(key in stats)) {
+        throw new Error(
+            `Expected stat key "${key}" not found in statistics object. ` +
+            `Available keys: ${Object.keys(stats).join(", ")}`,
+        );
+    }
+
     return parseInt(stats[key] ?? "0", 10);
+}
+
+// --- Helper to assert the byte-size invariant: compressed < original ---
+function expectCompressionShrunk(
+    statsBefore: Record<string, string>,
+    statsAfter: Record<string, string>,
+): void {
+    const originalDelta =
+        getStatNum(statsAfter, "total_original_bytes") -
+        getStatNum(statsBefore, "total_original_bytes");
+    const compressedDelta =
+        getStatNum(statsAfter, "total_bytes_compressed") -
+        getStatNum(statsBefore, "total_bytes_compressed");
+    expect(compressedDelta).toBeGreaterThan(0);
+    expect(compressedDelta).toBeLessThan(originalDelta);
 }
 
 // --- Helper to create a compression-enabled client ---
@@ -170,6 +200,7 @@ describe("Compression - Standalone", () => {
             expect(getStatNum(stats, "total_values_compressed")).toBeGreaterThan(
                 initialCompressed,
             );
+            expectCompressionShrunk(initialStats, stats);
         },
         TIMEOUT,
     );
@@ -196,6 +227,7 @@ describe("Compression - Standalone", () => {
             expect(getStatNum(stats, "total_values_compressed")).toBeGreaterThan(
                 initialCompressed,
             );
+            expectCompressionShrunk(initialStats, stats);
         },
         TIMEOUT,
     );
@@ -236,6 +268,7 @@ describe("Compression - Standalone", () => {
 
             // Above threshold - should be compressed
             const midCompressed = getStatNum(stats, "total_values_compressed");
+            const midStats = { ...stats };
 
             for (const size of [64, 128, 256]) {
                 const key = `above_threshold_${size}_${getRandomKey()}`;
@@ -248,6 +281,7 @@ describe("Compression - Standalone", () => {
             expect(getStatNum(stats, "total_values_compressed")).toBeGreaterThan(
                 midCompressed,
             );
+            expectCompressionShrunk(midStats, stats);
         },
         TIMEOUT,
     );
@@ -313,6 +347,7 @@ describe("Compression - Standalone", () => {
             expect(getStatNum(stats, "total_values_compressed")).toBeGreaterThan(
                 initialCompressed,
             );
+            expectCompressionShrunk(initialStats, stats);
         },
         TIMEOUT,
     );
@@ -410,6 +445,7 @@ describe("Compression - Standalone", () => {
             expect(getStatNum(stats, "total_values_compressed")).toBeGreaterThan(
                 initialCompressed,
             );
+            expectCompressionShrunk(initialStats, stats);
         },
         TIMEOUT,
     );
@@ -480,6 +516,7 @@ describe("Compression - Standalone", () => {
             const compressedCount =
                 getStatNum(stats, "total_values_compressed") - initialCompressed;
             expect(compressedCount).toBe(numKeys);
+            expectCompressionShrunk(initialStats, stats);
 
             // Verify values
             for (const [key, expectedValue] of keysAndValues) {
@@ -539,6 +576,7 @@ describe("Compression - Standalone", () => {
 
             expect(skippedCount).toBe(10);
             expect(compressedCount).toBe(10);
+            expectCompressionShrunk(initialStats, stats);
 
             // Verify all values
             for (const [key, expectedValue] of keysAndValues) {
@@ -578,6 +616,7 @@ describe("Compression - Standalone", () => {
             expect(getStatNum(stats, "total_values_compressed")).toBeGreaterThan(
                 initialCompressed,
             );
+            expectCompressionShrunk(initialStats, stats);
         },
         TIMEOUT,
     );
@@ -621,6 +660,7 @@ describe("Compression - Standalone", () => {
             expect(getStatNum(stats, "total_values_compressed")).toBeGreaterThan(
                 initialCompressed,
             );
+            expectCompressionShrunk(initialStats, stats);
         },
         TIMEOUT,
     );
@@ -711,6 +751,7 @@ describe("Compression - Standalone", () => {
             expect(getStatNum(stats, "total_values_compressed")).toBeGreaterThan(
                 initialCompressed,
             );
+            expectCompressionShrunk(initialStats, stats);
         },
         TIMEOUT,
     );
@@ -780,6 +821,7 @@ describe("Compression - Cluster", () => {
             expect(getStatNum(stats, "total_values_compressed")).toBeGreaterThan(
                 initialCompressed,
             );
+            expectCompressionShrunk(initialStats, stats);
         },
         TIMEOUT,
     );
@@ -807,6 +849,7 @@ describe("Compression - Cluster", () => {
             expect(getStatNum(stats, "total_values_compressed")).toBeGreaterThan(
                 initialCompressed,
             );
+            expectCompressionShrunk(initialStats, stats);
         },
         TIMEOUT,
     );
@@ -838,6 +881,7 @@ describe("Compression - Cluster", () => {
             const compressedCount =
                 getStatNum(stats, "total_values_compressed") - initialCompressed;
             expect(compressedCount).toBe(numKeys);
+            expectCompressionShrunk(initialStats, stats);
 
             // Verify all values
             for (const [key, expectedValue] of keysAndValues) {
@@ -883,6 +927,7 @@ describe("Compression - Cluster", () => {
             const compressedCount =
                 getStatNum(stats, "total_values_compressed") - initialCompressed;
             expect(compressedCount).toBe(numKeys);
+            expectCompressionShrunk(initialStats, stats);
 
             // Verify values
             for (const [key, expectedValue] of keysAndValues) {
@@ -915,6 +960,7 @@ describe("Compression - Cluster", () => {
             expect(getStatNum(stats, "total_values_compressed")).toBeGreaterThan(
                 initialCompressed,
             );
+            expectCompressionShrunk(initialStats, stats);
         },
         TIMEOUT,
     );
