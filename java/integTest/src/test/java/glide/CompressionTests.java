@@ -76,8 +76,7 @@ public class CompressionTests {
         standaloneClientNoCompression =
                 GlideClient.createClient(commonClientConfig().requestTimeout(10000).build()).get();
         clusterClientNoCompression =
-                GlideClusterClient.createClient(
-                                commonClusterClientConfig().requestTimeout(10000).build())
+                GlideClusterClient.createClient(commonClusterClientConfig().requestTimeout(10000).build())
                         .get();
         standaloneClientLz4 =
                 GlideClient.createClient(
@@ -139,7 +138,8 @@ public class CompressionTests {
                     "Compression should be applied for " + size + "B value");
 
             // compressed bytes <= original bytes
-            long origDelta = statLong(after, "total_original_bytes") - statLong(before, "total_original_bytes");
+            long origDelta =
+                    statLong(after, "total_original_bytes") - statLong(before, "total_original_bytes");
             long compDelta =
                     statLong(after, "total_bytes_compressed") - statLong(before, "total_bytes_compressed");
             assertTrue(compDelta <= origDelta, "Compressed size should be <= original size");
@@ -361,11 +361,7 @@ public class CompressionTests {
     public void test_compression_config_validation_min_size_too_small() {
         assertThrows(
                 ConfigurationError.class,
-                () ->
-                        CompressionConfiguration.builder()
-                                .enabled(true)
-                                .minCompressionSize(1)
-                                .build());
+                () -> CompressionConfiguration.builder().enabled(true).minCompressionSize(1).build());
     }
 
     @Test
@@ -376,7 +372,8 @@ public class CompressionTests {
                         .enabled(true)
                         .minCompressionSize(CompressionConfiguration.MIN_ALLOWED_COMPRESSION_SIZE)
                         .build();
-        assertEquals(CompressionConfiguration.MIN_ALLOWED_COMPRESSION_SIZE, config.getMinCompressionSize());
+        assertEquals(
+                CompressionConfiguration.MIN_ALLOWED_COMPRESSION_SIZE, config.getMinCompressionSize());
     }
 
     @Test
@@ -397,8 +394,7 @@ public class CompressionTests {
         // JSON-like data
         String jsonKey = "json_" + UUID.randomUUID();
         String jsonValue =
-                ("{\"id\":12345,\"name\":\"Test\",\"desc\":\"" + "A".repeat(200) + "\"}")
-                        .repeat(10);
+                ("{\"id\":12345,\"name\":\"Test\",\"desc\":\"" + "A".repeat(200) + "\"}").repeat(10);
         assertEquals(OK, client.set(jsonKey, jsonValue).get());
         assertEquals(jsonValue, client.get(jsonKey).get());
         client.del(new String[] {jsonKey}).get();

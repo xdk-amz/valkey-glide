@@ -31,8 +31,8 @@ import lombok.NonNull;
 public class CompressionConfiguration {
 
     /**
-     * The minimum allowed value for {@code minCompressionSize}. This is determined by the
-     * compression header size used internally (HEADER_SIZE + 1 = 6 bytes).
+     * The minimum allowed value for {@code minCompressionSize}. This is determined by the compression
+     * header size used internally (HEADER_SIZE + 1 = 6 bytes).
      */
     public static final int MIN_ALLOWED_COMPRESSION_SIZE = 6;
 
@@ -87,9 +87,7 @@ public class CompressionConfiguration {
                             this.enabled$value,
                             this.backend$value == null ? CompressionBackend.ZSTD : this.backend$value,
                             this.compressionLevel,
-                            this.minCompressionSize$set
-                                    ? this.minCompressionSize$value
-                                    : 64);
+                            this.minCompressionSize$set ? this.minCompressionSize$value : 64);
             config.validate();
             return config;
         }
