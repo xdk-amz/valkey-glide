@@ -75,6 +75,9 @@ public class GlideNativeBridge {
     /** Get glide-core default maximum inflight requests limit */
     public static native int getGlideCoreDefaultMaxInflightRequests();
 
+    /** Get the minimum allowed compression size from glide-core */
+    public static native int getMinCompressedSize();
+
     /** Execute cluster scan command asynchronously */
     public static native void executeClusterScanAsync(
             long clientPtr,

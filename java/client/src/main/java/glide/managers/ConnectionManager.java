@@ -332,6 +332,12 @@ public class ConnectionManager {
                             requestBuilder.addRootCerts(com.google.protobuf.ByteString.copyFrom(rootCerts));
                         }
 
+                        // Set compression configuration
+                        if (configuration.getCompressionConfiguration() != null) {
+                            requestBuilder.setCompressionConfig(
+                                    configuration.getCompressionConfiguration().toProtobuf());
+                        }
+
                         // Set pubsub subscriptions
                         if (subExact.length > 0 || subPattern.length > 0 || subSharded.length > 0) {
                             PubSubSubscriptions.Builder subBuilder = PubSubSubscriptions.newBuilder();
