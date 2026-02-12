@@ -52,7 +52,9 @@ public class CompressionExample {
 
             // Read it back — decompression is automatic
             String retrieved = client.get("compression_demo_key").get();
-            assert retrieved.equals(largeValue) : "Value mismatch after decompression";
+            if (!retrieved.equals(largeValue)) {
+                throw new RuntimeException("Value mismatch after decompression");
+            }
             log(INFO, "example", "GET returned correct decompressed value");
 
             // Check compression statistics

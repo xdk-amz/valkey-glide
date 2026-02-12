@@ -480,9 +480,7 @@ public class CompressionTests {
         }
 
         // Cleanup
-        for (String key : keys) {
-            clusterClient.del(new String[] {key}).get();
-        }
+        clusterClient.del(keys.toArray(new String[0])).get();
     }
 
     // ==================== Mixed-size batch ====================
