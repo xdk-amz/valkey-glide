@@ -13,6 +13,11 @@ import {
     TimeoutError,
 } from "@valkey/valkey-glide";
 
+/** Helper to read a numeric stat from the statistics record. */
+function statNum(stats: Record<string, string>, key: string): number {
+    return parseInt(stats[key] ?? "0", 10);
+}
+
 /**
  * Creates and returns a GlideClient with compression enabled.
  *
@@ -41,49 +46,62 @@ async function createClientWithCompression(
 }
 
 /**
- * Demonstrates basic compression usage with SET/GET operations.
+ * Demonstrates basic compression usage with SET/GET operations,
+ * using statistics to verify compression behavior.
  */
 async function appLogic(client: GlideClient) {
-    // Small value (below minCompressionSize threshold) - will NOT be compressed
+    // --- Small value (below minCompressionSize threshold) ---
+    const statsBefore = client.getStatistics() as Record<string, string>;
+    const skippedBefore = statNum(statsBefore, "compression_skipped_count");
+    const compressedBefore = statNum(statsBefore, "total_values_compressed");
+
     const smallValue = "hello";
     await client.set("small_key", smallValue);
     const smallResult = await client.get("small_key");
+
+    const statsAfterSmall = client.getStatistics() as Record<string, string>;
+    const skippedAfterSmall = statNum(statsAfterSmall, "compression_skipped_count");
+    const compressedAfterSmall = statNum(statsAfterSmall, "total_values_compressed");
+
     Logger.log(
         "info",
         "app",
-        `Small value (not compressed): ${smallResult?.toString()}`,
+        `Small value retrieved: "${smallResult?.toString()}" | ` +
+            `skipped: ${skippedAfterSmall - skippedBefore} (expected 1), ` +
+            `compressed: ${compressedAfterSmall - compressedBefore} (expected 0)`,
     );
 
-    // Large value (above threshold) - will be compressed transparently
+    // --- Large value (above threshold) ---
+    const statsBeforeLarge = client.getStatistics() as Record<string, string>;
+    const compressedBeforeLarge = statNum(statsBeforeLarge, "total_values_compressed");
+    const originalBytesBefore = statNum(statsBeforeLarge, "total_original_bytes");
+    const compressedBytesBefore = statNum(statsBeforeLarge, "total_bytes_compressed");
+
     const largeValue = "A".repeat(1024); // 1KB of repeated data, highly compressible
     await client.set("large_key", largeValue);
     const largeResult = await client.get("large_key");
-    Logger.log(
-        "info",
-        "app",
-        `Large value length: ${largeResult?.toString().length} (original: ${largeValue.length})`,
-    );
 
-    // Verify data integrity
-    Logger.log(
-        "info",
-        "app",
-        `Data integrity check: ${largeResult?.toString() === largeValue}`,
-    );
+    const statsAfterLarge = client.getStatistics() as Record<string, string>;
+    const compressedAfterLarge = statNum(statsAfterLarge, "total_values_compressed");
+    const originalBytesAfter = statNum(statsAfterLarge, "total_original_bytes");
+    const compressedBytesAfter = statNum(statsAfterLarge, "total_bytes_compressed");
 
-    // Check compression statistics
-    const stats = client.getStatistics() as Record<string, string>;
+    const originalDelta = originalBytesAfter - originalBytesBefore;
+    const compressedDelta = compressedBytesAfter - compressedBytesBefore;
+
     Logger.log(
         "info",
         "app",
-        `Compression stats - values compressed: ${stats["total_values_compressed"]}, ` +
-            `original bytes: ${stats["total_original_bytes"]}, ` +
-            `compressed bytes: ${stats["total_bytes_compressed"]}`,
+        `Large value - data integrity: ${largeResult?.toString() === largeValue} | ` +
+            `compressed: ${compressedAfterLarge - compressedBeforeLarge} (expected 1), ` +
+            `original bytes: ${originalDelta}, compressed bytes: ${compressedDelta}, ` +
+            `ratio: ${((1 - compressedDelta / originalDelta) * 100).toFixed(1)}% savings`,
     );
 }
 
 /**
- * Demonstrates creating a client with LZ4 compression backend.
+ * Demonstrates creating a client with LZ4 compression backend,
+ * using statistics to verify compression occurred.
  */
 async function lz4Example() {
     const compression: CompressionConfiguration = {
@@ -93,22 +111,40 @@ async function lz4Example() {
         minCompressionSize: 64,
     };
 
-    const client = await GlideClient.createClient({
-        addresses: [{ host: "localhost", port: 6379 }],
-        requestTimeout: 500,
-        compression,
-    });
+    let client: GlideClient | undefined;
 
-    const value = "B".repeat(2048);
-    await client.set("lz4_key", value);
-    const result = await client.get("lz4_key");
-    Logger.log(
-        "info",
-        "app",
-        `LZ4 compression - data integrity: ${result?.toString() === value}`,
-    );
+    try {
+        client = await GlideClient.createClient({
+            addresses: [{ host: "localhost", port: 6379 }],
+            requestTimeout: 500,
+            compression,
+        });
 
-    client.close();
+        const statsBefore = client.getStatistics() as Record<string, string>;
+        const compressedBefore = statNum(statsBefore, "total_values_compressed");
+        const originalBytesBefore = statNum(statsBefore, "total_original_bytes");
+        const compressedBytesBefore = statNum(statsBefore, "total_bytes_compressed");
+
+        const value = "B".repeat(2048);
+        await client.set("lz4_key", value);
+        const result = await client.get("lz4_key");
+
+        const statsAfter = client.getStatistics() as Record<string, string>;
+        const compressedAfter = statNum(statsAfter, "total_values_compressed");
+        const originalDelta = statNum(statsAfter, "total_original_bytes") - originalBytesBefore;
+        const compressedDelta = statNum(statsAfter, "total_bytes_compressed") - compressedBytesBefore;
+
+        Logger.log(
+            "info",
+            "app",
+            `LZ4 - data integrity: ${result?.toString() === value} | ` +
+                `compressed: ${compressedAfter - compressedBefore} (expected 1), ` +
+                `original bytes: ${originalDelta}, compressed bytes: ${compressedDelta}, ` +
+                `ratio: ${((1 - compressedDelta / originalDelta) * 100).toFixed(1)}% savings`,
+        );
+    } finally {
+        client?.close();
+    }
 }
 
 async function main() {
