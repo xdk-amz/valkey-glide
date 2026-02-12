@@ -72,7 +72,7 @@ public abstract class BaseClientConfiguration
     /// Compression configuration for automatic compression of values.
     /// When set, values meeting the minimum size threshold will be automatically compressed.
     /// </summary>
-    public CompressionConfiguration? Compression { get; set; }
+    public CompressionConfiguration? Compression { get; init; }
 
     protected BaseClientConfiguration(
         IReadOnlyList<NodeAddress> addresses,

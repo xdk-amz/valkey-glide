@@ -60,5 +60,6 @@ public class Statistics
         $"TotalValuesDecompressed={TotalValuesDecompressed}, " +
         $"TotalOriginalBytes={TotalOriginalBytes}, " +
         $"TotalBytesCompressed={TotalBytesCompressed}, " +
+        $"TotalBytesDecompressed={TotalBytesDecompressed}, " +
         $"CompressionSkippedCount={CompressionSkippedCount} }}";
 }
